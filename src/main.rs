@@ -37,18 +37,14 @@ fn main() {
 
     const WINDOW_WIDTH: usize = 960;
     const WINDOW_HEIGHT: usize = 540;
-    // const WINDOW_DIMS: Rect = Rect {
-    //     width: (WINDOW_WIDTH) as u32, 
-    //     height: (WINDOW_HEIGHT) as u32,
-    // };
-    // log::debug!("Window Dims: ({}, {})", WINDOW_DIMS.width, WINDOW_DIMS.height);
+    log::debug!("Window Dims: ({}, {})", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 
-    const PIXEL_DIMS: Rect = Rect {
+    let mut pixel_dims: Rect = Rect {
         width: 32,
         height: 16,
     };
-    log::debug!("Pixel Chunk Dims: ({}, {})", PIXEL_DIMS.width, PIXEL_DIMS.height);
+    log::debug!("Pixel Chunk Dims: ({}, {})", pixel_dims.width, pixel_dims.height);
 
     let mut win = Window::new(
         "surmise", 
@@ -65,6 +61,17 @@ fn main() {
             height: win_height as u32,
         };
 
+        if win.is_key_pressed(Key::Down, KeyRepeat::No) && pixel_dims.height > 1 {
+            pixel_dims.height = pixel_dims.height / 2;
+        } else if win.is_key_pressed(Key::Up, KeyRepeat::No) && pixel_dims.height < window_dims.height/2 {
+            pixel_dims.height = pixel_dims.height * 2; 
+        }
+        if win.is_key_pressed(Key::Right, KeyRepeat::No) && pixel_dims.width > 1 {
+            pixel_dims.width = pixel_dims.width / 2;
+        } else if win.is_key_pressed(Key::Left, KeyRepeat::No) && pixel_dims.width < window_dims.width/2 {
+            pixel_dims.width = pixel_dims.width * 2; 
+        }
+
         let new_camera_buffer = match get_new_camera_buffer(&mut camera) {
             Ok(b) => b,
             Err(e) => {
@@ -80,7 +87,7 @@ fn main() {
         log::debug!("Og Image Dims: ({}, {})", source_dims.width, source_dims.height);
 
         let (chunk_matrix, chunk_dims) = match calc_source_chunk_dims(
-            source_dims, window_dims as Rect, PIXEL_DIMS,
+            source_dims, window_dims as Rect, pixel_dims,
         ) {
             Ok(c) => c,
             Err(e) => {
@@ -93,7 +100,7 @@ fn main() {
 
         let downsampled = downsample(
             new_camera_buffer, 
-            window_dims, PIXEL_DIMS,
+            window_dims, pixel_dims,
             chunk_matrix, chunk_dims, 
             average,
         );
