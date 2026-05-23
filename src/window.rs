@@ -1,18 +1,21 @@
-use crate::transform::{Rect, average, calc_source_chunk_dims, downsample, rbg_image_to_u32};
+use crate::transform::{
+    Point, Rect, average, calc_source_chunk_dims, downsample, rbg_image_to_u32,
+};
 use anyhow::Result;
 use image::RgbImage;
 use minifb::*;
 use std::fmt;
 
-enum Mode {
-    Average,
+#[derive(Copy, Clone)]
+pub enum Mode {
+    Default,
     Reveal,
 }
 
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Mode::Average => write!(f, "Average"),
+            Mode::Default => write!(f, "Average"),
             Mode::Reveal => write!(f, "Reveal"),
         }
     }
@@ -22,12 +25,12 @@ impl Mode {
     // todo: this can't be right
     fn toggle(&mut self) {
         match self {
-            Mode::Average => {
+            Mode::Default => {
                 let new_mode = Mode::Reveal;
                 *self = new_mode;
             }
             Mode::Reveal => {
-                let new_mode = Mode::Average;
+                let new_mode = Mode::Default;
                 *self = new_mode;
             }
         }
@@ -71,7 +74,7 @@ impl Win {
         Ok(Win {
             window,
             pixel_chunk,
-            mode: Mode::Average,
+            mode: Mode::Default,
         })
     }
 
@@ -88,10 +91,12 @@ impl Win {
         };
         log::debug!("Raw Image Dims: ({}, {})", raw_dims.width, raw_dims.height);
 
-        let (chunk_matrix, chunk_dims) = match calc_source_chunk_dims(
+        let (pixel_chunk_matrix, source_chunk_dims, origin) = match calc_source_chunk_dims(
             raw_dims,
             Rect::from(self.window.get_size()),
+            Point::from(self.window.get_position()),
             self.pixel_chunk,
+            self.mode,
         ) {
             Ok(c) => c,
             Err(e) => {
@@ -99,19 +104,25 @@ impl Win {
                 return true;
             }
         };
-        log::debug!("Chunk Dims: ({}, {})", chunk_dims.width, chunk_dims.height);
+
         log::debug!(
-            "Chunk Matrix: ({}, {})",
-            chunk_matrix.width,
-            chunk_matrix.height
+            "Source Chunk Dims: ({}, {})",
+            source_chunk_dims.width,
+            source_chunk_dims.height
+        );
+        log::debug!(
+            "Pixel Chunk Matrix: ({}, {})",
+            pixel_chunk_matrix.width,
+            pixel_chunk_matrix.height
         );
 
         let downsampled = downsample(
             raw_buf,
+            origin,
             Rect::from(self.window.get_size()),
             self.pixel_chunk,
-            chunk_matrix,
-            chunk_dims,
+            pixel_chunk_matrix,
+            source_chunk_dims,
             average::average,
         );
 
@@ -180,7 +191,7 @@ impl Win {
         // switch mode
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
             self.mode.toggle();
-            println!("Toggled {}!", self.mode)
+            log::debug!("Toggled {}!", self.mode)
         }
     }
 }
