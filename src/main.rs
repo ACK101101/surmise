@@ -1,13 +1,13 @@
 mod window;
-use window::{*};
+use window::*;
 
 mod camera;
-use camera::{*};
+use camera::*;
 
 mod transform;
 
 fn main() {
-    env_logger::init(); 
+    env_logger::init();
 
     let mut camera = match Cam::new() {
         Ok(c) => c,
@@ -40,7 +40,7 @@ fn main() {
             }
         };
 
-        let ok=  win.step(new_camera_buffer);
+        let ok = win.step(new_camera_buffer);
         if !ok {
             break;
         }

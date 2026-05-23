@@ -15,11 +15,24 @@ pub struct Rect {
     pub height: u32,
 }
 
+impl From<(usize, usize)> for Rect {
+    fn from((width, height): (usize, usize)) -> Self {
+        Rect {
+            width: width as u32,
+            height: height as u32,
+        }
+    }
+}
+
 pub fn calc_source_chunk_dims(
-    source_dims: Rect, target_dims: Rect, pixel_dims: Rect, 
+    source_dims: Rect,
+    target_dims: Rect,
+    pixel_dims: Rect,
 ) -> Result<(Rect, Rect)> {
     if target_dims.width > source_dims.width || target_dims.height > source_dims.height {
-        return Err(anyhow!("Can not downsample when the source is smaller than target bruh"));
+        return Err(anyhow!(
+            "Can not downsample when the source is smaller than target bruh"
+        ));
     }
 
     // figure out how many chunky pixels fit into the target
@@ -32,9 +45,9 @@ pub fn calc_source_chunk_dims(
 
     // based on matrix of chunky pixels, map source chunk
     let source_chunk_width: u32 = source_dims.width / num_x_pixels;
-    let source_chunk_height: u32 = source_dims.height / num_y_pixels; 
-    let chunk_dims: Rect = Rect { 
-        width: source_chunk_width, 
+    let source_chunk_height: u32 = source_dims.height / num_y_pixels;
+    let chunk_dims: Rect = Rect {
+        width: source_chunk_width,
         height: source_chunk_height,
     };
 
@@ -42,9 +55,11 @@ pub fn calc_source_chunk_dims(
 }
 
 pub fn downsample(
-    source: RgbImage, 
-    window_dims: Rect, pixel_dims: Rect,
-    chunk_matrix: Rect, chunk_dims: Rect, 
+    source: RgbImage,
+    window_dims: Rect,
+    pixel_dims: Rect,
+    chunk_matrix: Rect,
+    chunk_dims: Rect,
     sampler: impl Fn(&RgbImage, Point, Rect) -> Rgb<u8>,
 ) -> RgbImage {
     let mut new_image: RgbImage = RgbImage::new(window_dims.width, window_dims.height);
@@ -53,17 +68,17 @@ pub fn downsample(
         for row_i in 0..chunk_matrix.height {
             // get top left point of chunk of source image
             let top_left = Point {
-                x: col_i*chunk_dims.width,
-                y: row_i*chunk_dims.height,
+                x: col_i * chunk_dims.width,
+                y: row_i * chunk_dims.height,
             };
 
             let new_pixel_value = sampler(&source, top_left, chunk_dims);
 
             // fill pixel chunk with new value
-            for x_i in (col_i*pixel_dims.width)..(col_i+1)*pixel_dims.width {
-                for y_i in (row_i*pixel_dims.height)..(row_i+1)*pixel_dims.height {
+            for x_i in (col_i * pixel_dims.width)..(col_i + 1) * pixel_dims.width {
+                for y_i in (row_i * pixel_dims.height)..(row_i + 1) * pixel_dims.height {
                     // log::debug!("Putting pixel at ({}, {})", x_i, y_i);
-                    new_image.put_pixel(x_i, y_i, new_pixel_value); 
+                    new_image.put_pixel(x_i, y_i, new_pixel_value);
                 }
             }
         }

@@ -1,21 +1,20 @@
 use anyhow::{Result, anyhow};
+use image::RgbImage;
 use nokhwa::{Camera, pixel_format::RgbFormat, utils::*};
-use image::{RgbImage};
 
 pub struct Cam {
-    camera: Camera
+    camera: Camera,
 }
 
 impl Cam {
     pub fn new() -> Result<Cam> {
         let camera_index = CameraIndex::Index(0);
-        let requested_format = RequestedFormat::new::<RgbFormat>(
-            RequestedFormatType::AbsoluteHighestFrameRate,
-        );
+        let requested_format =
+            RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
 
         // my camera is 1920 x 1080, 30fps
         let mut camera = Camera::new(camera_index, requested_format)?;
-        
+
         // tries to open camera stream
         camera.open_stream()?;
 
