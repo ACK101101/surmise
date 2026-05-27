@@ -11,7 +11,7 @@ use std::fmt;
 pub enum Mode {
     Default,
     Reveal,
-    EMA,
+    Ema,
 }
 
 impl fmt::Display for Mode {
@@ -19,7 +19,7 @@ impl fmt::Display for Mode {
         match self {
             Mode::Default => write!(f, "Average"),
             Mode::Reveal => write!(f, "Reveal"),
-            Mode::EMA => write!(f, "EMA"),
+            Mode::Ema => write!(f, "EMA"),
         }
     }
 }
@@ -33,10 +33,10 @@ impl Mode {
                 *self = new_mode;
             }
             Mode::Reveal => {
-                let new_mode = Mode::EMA;
+                let new_mode = Mode::Ema;
                 *self = new_mode;
             }
-            Mode::EMA => {
+            Mode::Ema => {
                 let new_mode = Mode::Default;
                 *self = new_mode;
             }
@@ -187,20 +187,20 @@ impl Win {
 
         // update pixel_chunk width
         if self.window.is_key_pressed(Key::Right, KeyRepeat::No) && self.pixel_chunk.width > 1 {
-            self.pixel_chunk.width = self.pixel_chunk.width / 2;
+            self.pixel_chunk.width /= 2;
         } else if self.window.is_key_pressed(Key::Left, KeyRepeat::No)
             && self.pixel_chunk.width < window_width / 2
         {
-            self.pixel_chunk.width = self.pixel_chunk.width * 2;
+            self.pixel_chunk.width *= 2;
         }
 
         // update pixel_chunk height
         if self.window.is_key_pressed(Key::Down, KeyRepeat::No) && self.pixel_chunk.height > 1 {
-            self.pixel_chunk.height = self.pixel_chunk.height / 2;
+            self.pixel_chunk.height /= 2;
         } else if self.window.is_key_pressed(Key::Up, KeyRepeat::No)
             && self.pixel_chunk.height < window_height / 2
         {
-            self.pixel_chunk.height = self.pixel_chunk.height * 2;
+            self.pixel_chunk.height *= 2;
         }
 
         // update pixel_chunk width and height together
@@ -208,33 +208,30 @@ impl Win {
             && self.pixel_chunk.width > 1
             && self.pixel_chunk.height > 1
         {
-            self.pixel_chunk.width = self.pixel_chunk.width / 2;
-            self.pixel_chunk.height = self.pixel_chunk.height / 2;
+            self.pixel_chunk.width /= 2;
+            self.pixel_chunk.height /= 2;
         } else if self.window.is_key_pressed(Key::RightBracket, KeyRepeat::No)
             && self.pixel_chunk.width < window_width / 2
             && self.pixel_chunk.height < window_height / 2
         {
-            self.pixel_chunk.width = self.pixel_chunk.width * 2;
-            self.pixel_chunk.height = self.pixel_chunk.height * 2;
+            self.pixel_chunk.width *= 2;
+            self.pixel_chunk.height *= 2;
         }
 
         // switch mode
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
             self.mode.toggle();
             log::debug!("Toggled {}!", self.mode);
-            match self.mode {
-                Mode::EMA => {
-                    // TODO: use constructor
-                    // TODO: update width and height
-                    let pixel_matrix = PixelMatrix {
-                        pixels: Vec::new(),
-                        width: w / self.pixel_chunk.width as usize,
-                        height: h / self.pixel_chunk.height as usize,
-                        steps: EMA_SMOOTHING,
-                    };
-                    self.memory = pixel_matrix;
-                }
-                _ => (),
+            if let Mode::Ema = self.mode {
+                // TODO: use constructor
+                // TODO: update width and height
+                let pixel_matrix = PixelMatrix {
+                    pixels: Vec::new(),
+                    width: w / self.pixel_chunk.width as usize,
+                    height: h / self.pixel_chunk.height as usize,
+                    steps: EMA_SMOOTHING,
+                };
+                self.memory = pixel_matrix;
             }
         }
     }

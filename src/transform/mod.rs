@@ -92,7 +92,7 @@ pub fn downsample(
 ) -> RgbImage {
     let mut new_image: RgbImage = RgbImage::new(window_dims.width, window_dims.height);
 
-    let use_memory = matches!(mode, Mode::EMA)
+    let use_memory = matches!(mode, Mode::Ema)
         && memory.width == pixel_chunk_matrix.width as usize
         && memory.height == pixel_chunk_matrix.height as usize
         && memory.steps > EMA_SMOOTHING;
@@ -126,7 +126,7 @@ pub fn downsample(
         }
     }
 
-    if matches!(mode, Mode::EMA) {
+    if matches!(mode, Mode::Ema) {
         memory.steps += 1;
     }
 
