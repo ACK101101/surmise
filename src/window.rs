@@ -1,5 +1,6 @@
 use crate::transform::{
-    Point, Rect, average, calc_source_chunk_dims, downsample, rbg_image_to_u32, reflect_y,
+    EMA_SMOOTHING, Point, Rect, average, calc_source_chunk_dims, downsample, rbg_image_to_u32,
+    reflect_y,
 };
 use anyhow::Result;
 use image::{Rgb, RgbImage};
@@ -91,7 +92,7 @@ impl Win {
             pixels: Vec::new(),
             width: WINDOW_WIDTH / pixel_chunk.width as usize,
             height: WINDOW_HEIGHT / pixel_chunk.height as usize,
-            steps: 0, // TODO: init to 0?
+            steps: EMA_SMOOTHING, // TODO: init to 0?
         };
 
         Ok(Win {
@@ -229,7 +230,7 @@ impl Win {
                         pixels: Vec::new(),
                         width: w / self.pixel_chunk.width as usize,
                         height: h / self.pixel_chunk.height as usize,
-                        steps: 0,
+                        steps: EMA_SMOOTHING,
                     };
                     self.memory = pixel_matrix;
                 }

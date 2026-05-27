@@ -4,7 +4,7 @@ use crate::window::{Mode, PixelMatrix};
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
 
-pub const EMA_SMOOTHING: usize = 4;
+pub const EMA_SMOOTHING: usize = 10;
 
 #[derive(Copy, Clone)]
 pub struct Point {
@@ -95,7 +95,7 @@ pub fn downsample(
     let use_memory = matches!(mode, Mode::EMA)
         && memory.width == pixel_chunk_matrix.width as usize
         && memory.height == pixel_chunk_matrix.height as usize
-        && memory.steps > 0;
+        && memory.steps > EMA_SMOOTHING;
 
     for row_i in 0..pixel_chunk_matrix.height {
         for col_i in 0..pixel_chunk_matrix.width {
@@ -111,7 +111,7 @@ pub fn downsample(
                 new_pixel_value = ema(new_pixel_value, memory, row_i, col_i);
             }
 
-            if memory.steps == 0 {
+            if memory.steps == EMA_SMOOTHING {
                 memory.pixels.push(new_pixel_value);
             } else {
                 memory.pixels[row_i as usize * memory.width + col_i as usize] = new_pixel_value;
