@@ -1,8 +1,8 @@
 use crate::transform::{
-    Point, Rect, average, calc_source_chunk_dims, downsample, rbg_image_to_u32,
+    Point, Rect, average, calc_source_chunk_dims, downsample, rbg_image_to_u32, reflect_y,
 };
 use anyhow::Result;
-use image::RgbImage;
+use image::{Rgb, RgbImage};
 use minifb::*;
 use std::fmt;
 
@@ -10,6 +10,7 @@ use std::fmt;
 pub enum Mode {
     Default,
     Reveal,
+    EMA,
 }
 
 impl fmt::Display for Mode {
@@ -17,6 +18,7 @@ impl fmt::Display for Mode {
         match self {
             Mode::Default => write!(f, "Average"),
             Mode::Reveal => write!(f, "Reveal"),
+            Mode::EMA => write!(f, "EMA"),
         }
     }
 }
@@ -30,6 +32,10 @@ impl Mode {
                 *self = new_mode;
             }
             Mode::Reveal => {
+                let new_mode = Mode::EMA;
+                *self = new_mode;
+            }
+            Mode::EMA => {
                 let new_mode = Mode::Default;
                 *self = new_mode;
             }
@@ -40,7 +46,16 @@ impl Mode {
 pub struct Win {
     window: Window,
     pixel_chunk: Rect,
+    memory: PixelMatrix,
     mode: Mode,
+}
+
+// TODO: methods, prob shouldn't be all pub
+pub struct PixelMatrix {
+    pub pixels: Vec<Rgb<u8>>,
+    pub width: usize,
+    pub height: usize,
+    pub steps: usize,
 }
 
 impl Win {
@@ -49,6 +64,7 @@ impl Win {
         const WINDOW_HEIGHT: usize = 540;
         log::debug!("Window Dims: ({}, {})", WINDOW_WIDTH, WINDOW_HEIGHT);
 
+        // TODO: pull to config later
         let pixel_chunk: Rect = Rect {
             width: 32,
             height: 16,
@@ -71,9 +87,17 @@ impl Win {
             },
         )?;
 
+        let pixel_matrix = PixelMatrix {
+            pixels: Vec::new(),
+            width: WINDOW_WIDTH / pixel_chunk.width as usize,
+            height: WINDOW_HEIGHT / pixel_chunk.height as usize,
+            steps: 0, // TODO: init to 0?
+        };
+
         Ok(Win {
             window,
             pixel_chunk,
+            memory: pixel_matrix,
             mode: Mode::Default,
         })
     }
@@ -93,7 +117,7 @@ impl Win {
 
         let (pixel_chunk_matrix, source_chunk_dims, origin) = match calc_source_chunk_dims(
             raw_dims,
-            Rect::from(self.window.get_size()),
+            Rect::from(self.window.get_size()), // note: I don't think this works well with Rectangle resizing... idk why
             Point::from(self.window.get_position()),
             self.pixel_chunk,
             self.mode,
@@ -116,14 +140,18 @@ impl Win {
             pixel_chunk_matrix.height
         );
 
+        let flipped_buf = reflect_y(&raw_buf);
+
         let downsampled = downsample(
-            raw_buf,
+            flipped_buf,
             origin,
             Rect::from(self.window.get_size()),
             self.pixel_chunk,
             pixel_chunk_matrix,
             source_chunk_dims,
             average::average,
+            self.mode,
+            &mut self.memory,
         );
 
         let update_buffer = rbg_image_to_u32(&downsampled);
@@ -151,6 +179,7 @@ impl Win {
         false
     }
 
+    // TODO: can prob make more efficient, use event or smth?
     fn update_pix_size_and_mode(&mut self) {
         let (w, h) = self.window.get_size();
         let (window_width, window_height) = (w as u32, h as u32);
@@ -191,7 +220,21 @@ impl Win {
         // switch mode
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
             self.mode.toggle();
-            log::debug!("Toggled {}!", self.mode)
+            log::debug!("Toggled {}!", self.mode);
+            match self.mode {
+                Mode::EMA => {
+                    // TODO: use constructor
+                    // TODO: update width and height
+                    let pixel_matrix = PixelMatrix {
+                        pixels: Vec::new(),
+                        width: w / self.pixel_chunk.width as usize,
+                        height: h / self.pixel_chunk.height as usize,
+                        steps: 0,
+                    };
+                    self.memory = pixel_matrix;
+                }
+                _ => (),
+            }
         }
     }
 }

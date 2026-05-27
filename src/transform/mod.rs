@@ -1,20 +1,22 @@
 pub mod average;
 
-use crate::window::Mode;
+use crate::window::{Mode, PixelMatrix};
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
 
+pub const EMA_SMOOTHING: usize = 4;
+
 #[derive(Copy, Clone)]
 pub struct Point {
-    pub x: u32,
-    pub y: u32,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl From<(isize, isize)> for Point {
     fn from((x, y): (isize, isize)) -> Self {
         Point {
-            x: x as u32,
-            y: y as u32,
+            x: x as i32,
+            y: y as i32,
         }
     }
 }
@@ -56,8 +58,8 @@ pub fn calc_source_chunk_dims(
     };
 
     let relevant_source_dims: Rect = match mode {
-        Mode::Default => source_dims,
         Mode::Reveal => window_dims,
+        _ => source_dims,
     };
 
     // based on matrix of chunky pixels, map source chunks to pixel chunks
@@ -70,8 +72,8 @@ pub fn calc_source_chunk_dims(
 
     // where to start processing source image
     let origin: Point = match mode {
-        Mode::Default => Point { x: 0, y: 0 },
         Mode::Reveal => window_pos,
+        _ => Point { x: 0, y: 0 },
     };
 
     Ok((pixel_chunk_matrix, source_chunk_dims, origin))
@@ -85,27 +87,47 @@ pub fn downsample(
     pixel_chunk_matrix: Rect,
     source_chunk_dims: Rect,
     sampler: impl Fn(&RgbImage, Point, Rect) -> Rgb<u8>,
+    mode: Mode,
+    memory: &mut PixelMatrix,
 ) -> RgbImage {
     let mut new_image: RgbImage = RgbImage::new(window_dims.width, window_dims.height);
 
-    for col_i in 0..pixel_chunk_matrix.width {
-        for row_i in 0..pixel_chunk_matrix.height {
+    let use_memory = matches!(mode, Mode::EMA)
+        && memory.width == pixel_chunk_matrix.width as usize
+        && memory.height == pixel_chunk_matrix.height as usize
+        && memory.steps > 0;
+
+    for row_i in 0..pixel_chunk_matrix.height {
+        for col_i in 0..pixel_chunk_matrix.width {
             // get top left point of chunk of source image
             let top_left = Point {
-                x: origin.x + (col_i * source_chunk_dims.width),
-                y: origin.y + (row_i * source_chunk_dims.height),
+                x: origin.x + (col_i * source_chunk_dims.width) as i32,
+                y: origin.y + (row_i * source_chunk_dims.height) as i32,
             };
 
-            let new_pixel_value = sampler(&source, top_left, source_chunk_dims);
+            let mut new_pixel_value = sampler(&source, top_left, source_chunk_dims);
+
+            if use_memory {
+                new_pixel_value = ema(new_pixel_value, memory, row_i, col_i);
+            }
+
+            if memory.steps == 0 {
+                memory.pixels.push(new_pixel_value);
+            } else {
+                memory.pixels[row_i as usize * memory.width + col_i as usize] = new_pixel_value;
+            }
 
             // fill pixel chunk with new value
             for x_i in (col_i * pixel_dims.width)..(col_i + 1) * pixel_dims.width {
                 for y_i in (row_i * pixel_dims.height)..(row_i + 1) * pixel_dims.height {
-                    // log::debug!("Putting pixel at ({}, {})", x_i, y_i);
                     new_image.put_pixel(x_i, y_i, new_pixel_value);
                 }
             }
         }
+    }
+
+    if matches!(mode, Mode::EMA) {
+        memory.steps += 1;
     }
 
     new_image
@@ -122,4 +144,42 @@ pub fn rbg_image_to_u32(image: &RgbImage) -> Vec<u32> {
 
 fn rgb_to_u32(r: u8, g: u8, b: u8) -> u32 {
     ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+}
+
+fn add_rgb(p0: Rgb<u8>, p1: Rgb<u8>) -> Rgb<u8> {
+    Rgb([
+        p0.0[0].saturating_add(p1.0[0]),
+        p0.0[1].saturating_add(p1.0[1]),
+        p0.0[2].saturating_add(p1.0[2]),
+    ])
+}
+
+fn scale_rbg(pix: Rgb<u8>, numerator: usize, denominator: usize) -> Rgb<u8> {
+    Rgb([
+        (((pix.0[0] as usize).saturating_mul(numerator)).saturating_div(denominator)) as u8,
+        (((pix.0[1] as usize).saturating_mul(numerator)).saturating_div(denominator)) as u8,
+        (((pix.0[2] as usize).saturating_mul(numerator)).saturating_div(denominator)) as u8,
+    ])
+}
+
+pub fn reflect_y(image: &RgbImage) -> RgbImage {
+    let (w, h) = image.dimensions();
+    let mut new_image = RgbImage::new(w, h);
+    for (x, y, p) in image.enumerate_pixels() {
+        new_image.put_pixel(w - x - 1, y, *p);
+    }
+
+    new_image
+}
+
+fn ema(new_p: Rgb<u8>, memory: &mut PixelMatrix, chunk_r: u32, chunk_c: u32) -> Rgb<u8> {
+    let old_p = memory.pixels[chunk_r as usize * memory.width + chunk_c as usize];
+    let weighted_new = scale_rbg(new_p, EMA_SMOOTHING, 1 + memory.steps);
+    let weighted_old = scale_rbg(
+        old_p,
+        (1 + memory.steps).saturating_sub(EMA_SMOOTHING),
+        memory.steps,
+    );
+
+    add_rgb(weighted_old, weighted_new)
 }
