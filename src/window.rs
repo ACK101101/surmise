@@ -1,9 +1,9 @@
 use crate::transform::{
-    EMA_SMOOTHING, Point, Rect, average, calc_source_chunk_dims, downsample, rbg_image_to_u32,
-    reflect_y,
+    Point, Rect, average, calc_source_chunk_dims, downsample, lattice::PixelLattice,
+    lattice::SMA_WINDOW_SIZE, rbg_image_to_u32, reflect_y,
 };
 use anyhow::Result;
-use image::{Rgb, RgbImage};
+use image::RgbImage;
 use minifb::*;
 use std::fmt;
 
@@ -11,7 +11,7 @@ use std::fmt;
 pub enum Mode {
     Default,
     Reveal,
-    Ema,
+    Sma,
 }
 
 impl fmt::Display for Mode {
@@ -19,7 +19,7 @@ impl fmt::Display for Mode {
         match self {
             Mode::Default => write!(f, "Average"),
             Mode::Reveal => write!(f, "Reveal"),
-            Mode::Ema => write!(f, "EMA"),
+            Mode::Sma => write!(f, "SMA"),
         }
     }
 }
@@ -33,10 +33,10 @@ impl Mode {
                 *self = new_mode;
             }
             Mode::Reveal => {
-                let new_mode = Mode::Ema;
+                let new_mode = Mode::Sma;
                 *self = new_mode;
             }
-            Mode::Ema => {
+            Mode::Sma => {
                 let new_mode = Mode::Default;
                 *self = new_mode;
             }
@@ -47,16 +47,8 @@ impl Mode {
 pub struct Win {
     window: Window,
     pixel_chunk: Rect,
-    memory: PixelMatrix,
+    memory: PixelLattice,
     mode: Mode,
-}
-
-// TODO: methods, prob shouldn't be all pub
-pub struct PixelMatrix {
-    pub pixels: Vec<Rgb<u8>>,
-    pub width: usize,
-    pub height: usize,
-    pub steps: usize,
 }
 
 impl Win {
@@ -88,12 +80,7 @@ impl Win {
             },
         )?;
 
-        let pixel_matrix = PixelMatrix {
-            pixels: Vec::new(),
-            width: WINDOW_WIDTH / pixel_chunk.width as usize,
-            height: WINDOW_HEIGHT / pixel_chunk.height as usize,
-            steps: EMA_SMOOTHING, // TODO: init to 0?
-        };
+        let pixel_matrix = PixelLattice::new(WINDOW_WIDTH, WINDOW_HEIGHT, SMA_WINDOW_SIZE);
 
         Ok(Win {
             window,
@@ -222,16 +209,13 @@ impl Win {
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
             self.mode.toggle();
             log::debug!("Toggled {}!", self.mode);
-            if let Mode::Ema = self.mode {
-                // TODO: use constructor
-                // TODO: update width and height
-                let pixel_matrix = PixelMatrix {
-                    pixels: Vec::new(),
-                    width: w / self.pixel_chunk.width as usize,
-                    height: h / self.pixel_chunk.height as usize,
-                    steps: EMA_SMOOTHING,
-                };
-                self.memory = pixel_matrix;
+            if let Mode::Sma = self.mode {
+                let pixel_lattice = PixelLattice::new(
+                    w / self.pixel_chunk.width as usize,
+                    h / self.pixel_chunk.height as usize,
+                    SMA_WINDOW_SIZE,
+                );
+                self.memory = pixel_lattice;
             }
         }
     }

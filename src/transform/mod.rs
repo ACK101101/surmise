@@ -1,10 +1,11 @@
 pub mod average;
+pub mod lattice;
 
-use crate::window::{Mode, PixelMatrix};
+use std::mem;
+
+use crate::window::Mode;
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
-
-pub const EMA_SMOOTHING: usize = 10;
 
 #[derive(Copy, Clone)]
 pub struct Point {
@@ -88,14 +89,15 @@ pub fn downsample(
     source_chunk_dims: Rect,
     sampler: impl Fn(&RgbImage, Point, Rect) -> Rgb<u8>,
     mode: Mode,
-    memory: &mut PixelMatrix,
+    memory: &mut lattice::PixelLattice,
 ) -> RgbImage {
     let mut new_image: RgbImage = RgbImage::new(window_dims.width, window_dims.height);
 
-    let use_memory = matches!(mode, Mode::Ema)
-        && memory.width == pixel_chunk_matrix.width as usize
-        && memory.height == pixel_chunk_matrix.height as usize
-        && memory.steps > EMA_SMOOTHING;
+    let use_memory = matches!(mode, Mode::Sma)
+        && memory.use_memory(
+            pixel_chunk_matrix.width as usize,
+            pixel_chunk_matrix.height as usize,
+        );
 
     for row_i in 0..pixel_chunk_matrix.height {
         for col_i in 0..pixel_chunk_matrix.width {
@@ -108,13 +110,7 @@ pub fn downsample(
             let mut new_pixel_value = sampler(&source, top_left, source_chunk_dims);
 
             if use_memory {
-                new_pixel_value = ema(new_pixel_value, memory, row_i, col_i);
-            }
-
-            if memory.steps == EMA_SMOOTHING {
-                memory.pixels.push(new_pixel_value);
-            } else {
-                memory.pixels[row_i as usize * memory.width + col_i as usize] = new_pixel_value;
+                new_pixel_value = memory.sma(new_pixel_value, row_i, col_i);
             }
 
             // fill pixel chunk with new value
@@ -126,8 +122,8 @@ pub fn downsample(
         }
     }
 
-    if matches!(mode, Mode::Ema) {
-        memory.steps += 1;
+    if use_memory {
+        memory.bump_write_idx();
     }
 
     new_image
@@ -170,16 +166,4 @@ pub fn reflect_y(image: &RgbImage) -> RgbImage {
     }
 
     new_image
-}
-
-fn ema(new_p: Rgb<u8>, memory: &mut PixelMatrix, chunk_r: u32, chunk_c: u32) -> Rgb<u8> {
-    let old_p = memory.pixels[chunk_r as usize * memory.width + chunk_c as usize];
-    let weighted_new = scale_rbg(new_p, EMA_SMOOTHING, 1 + memory.steps);
-    let weighted_old = scale_rbg(
-        old_p,
-        (1 + memory.steps).saturating_sub(EMA_SMOOTHING),
-        memory.steps,
-    );
-
-    add_rgb(weighted_old, weighted_new)
 }
