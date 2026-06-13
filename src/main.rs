@@ -4,6 +4,8 @@ use window::*;
 mod camera;
 use camera::*;
 
+mod config;
+
 mod transform;
 
 fn main() {

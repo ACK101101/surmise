@@ -1,6 +1,10 @@
+use crate::config::{
+    DEFAULT_PIXEL_HEIGHT, DEFAULT_PIXEL_WIDTH, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
+    SMA_WINDOW_SIZE,
+};
 use crate::transform::{
     Point, Rect, average, calc_source_chunk_dims, downsample, lattice::PixelLattice,
-    lattice::SMA_WINDOW_SIZE, rbg_image_to_u32, reflect_y,
+    rbg_image_to_u32, reflect_y,
 };
 use anyhow::Result;
 use image::RgbImage;
@@ -53,14 +57,15 @@ pub struct Win {
 
 impl Win {
     pub fn new() -> Result<Win> {
-        const WINDOW_WIDTH: usize = 960;
-        const WINDOW_HEIGHT: usize = 540;
-        log::debug!("Window Dims: ({}, {})", WINDOW_WIDTH, WINDOW_HEIGHT);
+        log::debug!(
+            "Window Dims: ({}, {})",
+            DEFAULT_WINDOW_WIDTH,
+            DEFAULT_WINDOW_HEIGHT
+        );
 
-        // TODO: pull to config later
         let pixel_chunk: Rect = Rect {
-            width: 32,
-            height: 16,
+            width: DEFAULT_PIXEL_WIDTH as u32,
+            height: DEFAULT_PIXEL_HEIGHT as u32,
         };
         log::debug!(
             "Pixel Chunk Dims: ({}, {})",
@@ -70,8 +75,8 @@ impl Win {
 
         let window = Window::new(
             "surmise",
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
+            DEFAULT_WINDOW_WIDTH,
+            DEFAULT_WINDOW_HEIGHT,
             WindowOptions {
                 borderless: true,
                 resize: true,
@@ -80,7 +85,8 @@ impl Win {
             },
         )?;
 
-        let pixel_matrix = PixelLattice::new(WINDOW_WIDTH, WINDOW_HEIGHT, SMA_WINDOW_SIZE);
+        let pixel_matrix =
+            PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE);
 
         Ok(Win {
             window,

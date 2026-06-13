@@ -1,8 +1,8 @@
 use std::vec;
 
-use image::Rgb;
+use crate::config::SMA_WINDOW_SIZE;
 
-pub const SMA_WINDOW_SIZE: usize = 10;
+use image::Rgb;
 
 pub struct PixelLattice {
     pixel_slices: Vec<Vec<Rgb<u8>>>,

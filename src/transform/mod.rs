@@ -1,8 +1,6 @@
 pub mod average;
 pub mod lattice;
 
-use std::mem;
-
 use crate::window::Mode;
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
