@@ -29,22 +29,12 @@ impl fmt::Display for Mode {
 }
 
 impl Mode {
-    // todo: this can't be right
     fn toggle(&mut self) {
-        match self {
-            Mode::Default => {
-                let new_mode = Mode::Reveal;
-                *self = new_mode;
-            }
-            Mode::Reveal => {
-                let new_mode = Mode::Sma;
-                *self = new_mode;
-            }
-            Mode::Sma => {
-                let new_mode = Mode::Default;
-                *self = new_mode;
-            }
-        }
+        *self = match self {
+            Mode::Default => Mode::Reveal,
+            Mode::Reveal => Mode::Sma,
+            Mode::Sma => Mode::Default,
+        };
     }
 }
 
