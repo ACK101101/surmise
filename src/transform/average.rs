@@ -5,8 +5,10 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_dims: Rect) -> Rgb<u8> {
     let (w, h) = image.dimensions();
     let (w, h) = (w as i32, h as i32);
     let (mut r, mut g, mut b) = (0u32, 0u32, 0u32);
-    for x_i in top_left.x..top_left.x + chunk_dims.width as i32 {
-        for y_i in top_left.y..top_left.y + chunk_dims.height as i32 {
+    let (chunk_width, chunk_height) = chunk_dims.get_dims();
+
+    for x_i in top_left.x..top_left.x + chunk_width as i32 {
+        for y_i in top_left.y..top_left.y + chunk_height as i32 {
             // protect against grabbing pixels outside image for reveal mode
             if x_i < 0 || x_i >= w || y_i < 0 || y_i >= h {
                 continue;
@@ -19,7 +21,7 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_dims: Rect) -> Rgb<u8> {
         }
     }
 
-    let num_pixels: u32 = chunk_dims.width * chunk_dims.height;
+    let num_pixels = chunk_dims.area();
 
     Rgb([
         (r / num_pixels) as u8,

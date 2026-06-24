@@ -21,7 +21,7 @@ impl Cam {
         Ok(Cam { camera })
     }
 
-    pub fn next(&mut self) -> Result<RgbImage> {
+    pub fn next_frame(&mut self) -> Result<RgbImage> {
         // get a frame
         let frame = match self.camera.frame() {
             Ok(f) => f,

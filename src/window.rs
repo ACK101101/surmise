@@ -2,38 +2,40 @@ use crate::config::{
     DEFAULT_PIXEL_HEIGHT, DEFAULT_PIXEL_WIDTH, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
     SMA_WINDOW_SIZE,
 };
+use crate::geometry::{Point, Rect};
 use crate::transform::{
-    Point, Rect, average, calc_source_chunk_dims, downsample, lattice::PixelLattice,
+    average, calc_source_chunk_dims, downsample, lattice::PixelLattice,
     rbg_image_to_u32, reflect_y,
 };
+
 use anyhow::Result;
 use image::RgbImage;
 use minifb::*;
 use std::fmt;
 
 #[derive(Copy, Clone)]
-pub enum Mode {
+pub enum EffectMode {
     Default,
     Reveal,
     Sma,
 }
 
-impl fmt::Display for Mode {
+impl fmt::Display for EffectMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Mode::Default => write!(f, "Average"),
-            Mode::Reveal => write!(f, "Reveal"),
-            Mode::Sma => write!(f, "SMA"),
+            EffectMode::Default => write!(f, "Average"),
+            EffectMode::Reveal => write!(f, "Reveal"),
+            EffectMode::Sma => write!(f, "SMA"),
         }
     }
 }
 
-impl Mode {
+impl EffectMode {
     fn toggle(&mut self) {
         *self = match self {
-            Mode::Default => Mode::Reveal,
-            Mode::Reveal => Mode::Sma,
-            Mode::Sma => Mode::Default,
+            EffectMode::Default => EffectMode::Reveal,
+            EffectMode::Reveal => EffectMode::Sma,
+            EffectMode::Sma => EffectMode::Default,
         };
     }
 }
@@ -42,7 +44,14 @@ pub struct Win {
     window: Window,
     pixel_chunk: Rect,
     memory: PixelLattice,
-    mode: Mode,
+    effect_mode: EffectMode,
+}
+
+#[derive(Clone, Copy)]
+pub enum WinStepOutcome {
+    Continue,
+    Shutter,
+    Open,
 }
 
 impl Win {
@@ -53,15 +62,8 @@ impl Win {
             DEFAULT_WINDOW_HEIGHT
         );
 
-        let pixel_chunk: Rect = Rect {
-            width: DEFAULT_PIXEL_WIDTH as u32,
-            height: DEFAULT_PIXEL_HEIGHT as u32,
-        };
-        log::debug!(
-            "Pixel Chunk Dims: ({}, {})",
-            pixel_chunk.width,
-            pixel_chunk.height
-        );
+        let pixel_chunk: Rect = Rect::new(DEFAULT_PIXEL_WIDTH as u32, DEFAULT_PIXEL_HEIGHT as u32);
+        log::debug!("Pixel Chunk Dims: {pixel_chunk:?}");
 
         let window = Window::new(
             "surmise",
@@ -82,47 +84,35 @@ impl Win {
             window,
             pixel_chunk,
             memory: pixel_matrix,
-            mode: Mode::Default,
+            effect_mode: EffectMode::Default,
         })
     }
 
-    pub fn step(&mut self, raw_buf: RgbImage) -> bool {
-        if self.should_close() {
-            return false;
+    pub fn step(&mut self, raw_buf: RgbImage) -> WinStepOutcome {
+        let outcome = self.update_pix_size_and_mode();
+        if matches!(outcome, WinStepOutcome::Shutter) {
+            return outcome;
         }
 
-        self.update_pix_size_and_mode();
-
-        let raw_dims: Rect = Rect {
-            width: raw_buf.width(),
-            height: raw_buf.height(),
-        };
-        log::debug!("Raw Image Dims: ({}, {})", raw_dims.width, raw_dims.height);
+        let raw_dims: Rect = Rect::new(raw_buf.width(), raw_buf.height());
+        log::debug!("Raw Image Dims: {raw_dims:?}");
 
         let (pixel_chunk_matrix, source_chunk_dims, origin) = match calc_source_chunk_dims(
             raw_dims,
             Rect::from(self.window.get_size()), // note: I don't think this works well with Rectangle resizing... idk why
             Point::from(self.window.get_position()),
             self.pixel_chunk,
-            self.mode,
+            self.effect_mode,
         ) {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("Chunking oopsie: {e}");
-                return true;
+                return outcome;
             }
         };
 
-        log::debug!(
-            "Source Chunk Dims: ({}, {})",
-            source_chunk_dims.width,
-            source_chunk_dims.height
-        );
-        log::debug!(
-            "Pixel Chunk Matrix: ({}, {})",
-            pixel_chunk_matrix.width,
-            pixel_chunk_matrix.height
-        );
+        log::debug!("Source Chunk Dims: {source_chunk_dims:?}");
+        log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
 
         let flipped_buf = reflect_y(&raw_buf);
 
@@ -134,7 +124,7 @@ impl Win {
             pixel_chunk_matrix,
             source_chunk_dims,
             average::average,
-            self.mode,
+            self.effect_mode,
             &mut self.memory,
         );
 
@@ -148,71 +138,91 @@ impl Win {
             Ok(u) => u,
             Err(e) => {
                 eprintln!("Update oopsie: {e}");
-                return true;
+                return outcome;
             }
         };
 
-        true
+        outcome
     }
 
-    fn should_close(&mut self) -> bool {
-        if !self.window.is_open() || self.window.is_key_down(Key::Escape) {
-            return true;
-        }
-
-        false
-    }
-
-    // TODO: can prob make more efficient, use event or smth?
-    fn update_pix_size_and_mode(&mut self) {
+    // TODO: god this is ugly
+    fn update_pix_size_and_mode(&mut self) -> WinStepOutcome {
+        let mut outcome = WinStepOutcome::Continue;
         let (w, h) = self.window.get_size();
         let (window_width, window_height) = (w as u32, h as u32);
+        let (mut pixel_width, mut pixel_height) = self.pixel_chunk.get_dims();
+        let mut dirty_pixel_chunk = false;
 
-        // update pixel_chunk width
-        if self.window.is_key_pressed(Key::Right, KeyRepeat::No) && self.pixel_chunk.width > 1 {
-            self.pixel_chunk.width /= 2;
+        // determine if want to shutter or open window
+        if !self.window.is_open() || self.window.is_key_down(Key::Escape) {
+            return WinStepOutcome::Shutter;
+        } else if self.window.is_key_pressed(Key::Q, KeyRepeat::No) {
+            outcome = WinStepOutcome::Shutter
+        } else if self.window.is_key_pressed(Key::N, KeyRepeat::No) {
+            outcome = WinStepOutcome::Open
+        }
+
+        // update local pixel_chunk width
+        if self.window.is_key_pressed(Key::Right, KeyRepeat::No) && pixel_width > 1 {
+            pixel_width /= 2;
+            dirty_pixel_chunk = true;
         } else if self.window.is_key_pressed(Key::Left, KeyRepeat::No)
-            && self.pixel_chunk.width < window_width / 2
+            && pixel_width < window_width / 2
         {
-            self.pixel_chunk.width *= 2;
+            pixel_width *= 2;
+            dirty_pixel_chunk = true;
         }
 
-        // update pixel_chunk height
-        if self.window.is_key_pressed(Key::Down, KeyRepeat::No) && self.pixel_chunk.height > 1 {
-            self.pixel_chunk.height /= 2;
+        // update local pixel_chunk height
+        if self.window.is_key_pressed(Key::Down, KeyRepeat::No) && pixel_height > 1 {
+            pixel_height /= 2;
+            dirty_pixel_chunk = true;
         } else if self.window.is_key_pressed(Key::Up, KeyRepeat::No)
-            && self.pixel_chunk.height < window_height / 2
+            && pixel_height < window_height / 2
         {
-            self.pixel_chunk.height *= 2;
+            pixel_height *= 2;
+            dirty_pixel_chunk = true;
         }
 
-        // update pixel_chunk width and height together
+        // update local pixel_chunk width and height together
         if self.window.is_key_pressed(Key::LeftBracket, KeyRepeat::No)
-            && self.pixel_chunk.width > 1
-            && self.pixel_chunk.height > 1
+            && pixel_width > 1
+            && pixel_height > 1
         {
-            self.pixel_chunk.width /= 2;
-            self.pixel_chunk.height /= 2;
+            pixel_width /= 2;
+            pixel_height /= 2;
+            dirty_pixel_chunk = true;
         } else if self.window.is_key_pressed(Key::RightBracket, KeyRepeat::No)
-            && self.pixel_chunk.width < window_width / 2
-            && self.pixel_chunk.height < window_height / 2
+            && pixel_width < window_width / 2
+            && pixel_height < window_height / 2
         {
-            self.pixel_chunk.width *= 2;
-            self.pixel_chunk.height *= 2;
+            pixel_width *= 2;
+            pixel_height *= 2;
+            dirty_pixel_chunk = true;
         }
+
+        // update pixel_chunk state
+        self.pixel_chunk.resize(pixel_width, pixel_height);
 
         // switch mode
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
-            self.mode.toggle();
-            log::debug!("Toggled {}!", self.mode);
-            if let Mode::Sma = self.mode {
-                let pixel_lattice = PixelLattice::new(
-                    w / self.pixel_chunk.width as usize,
-                    h / self.pixel_chunk.height as usize,
-                    SMA_WINDOW_SIZE,
-                );
-                self.memory = pixel_lattice;
+            self.effect_mode.toggle();
+            log::debug!("Toggled {}!", self.effect_mode);
+            if matches!(self.effect_mode, EffectMode::Sma) {
+                dirty_pixel_chunk = true;
             }
         }
+
+        // update memory
+        if dirty_pixel_chunk && matches!(self.effect_mode, EffectMode::Sma) {
+            let pixel_lattice = PixelLattice::new(
+                w / pixel_width as usize,
+                h / pixel_height as usize,
+                SMA_WINDOW_SIZE,
+            );
+            self.memory = pixel_lattice;
+        }
+
+        outcome
     }
 }

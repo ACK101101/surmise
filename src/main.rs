@@ -1,14 +1,14 @@
-use anyhow::{Context, Result, bail};
-
 mod window;
-use window::*;
+
+mod windows_manager;
+use windows_manager::*;
 
 mod camera;
 use camera::*;
 
 mod config;
-
 mod transform;
+mod geometry;
 
 fn main() {
     env_logger::init();
@@ -21,7 +21,7 @@ fn main() {
         }
     };
 
-    let mut windows = match Windows::new() {
+    let mut wins_man = match WindowsManager::new() {
         Ok(w) => w,
         Err(e) => {
             eprintln!("Windows oopsie: {e}");
@@ -29,8 +29,8 @@ fn main() {
         }
     };
 
-    while !windows.wins.is_empty() {
-        let new_camera_buffer = match camera.next() {
+    while wins_man.is_alive() {
+        let next_frame_buf = match camera.next_frame() {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("Camera oopsie: {e}");
@@ -38,43 +38,6 @@ fn main() {
             }
         };
 
-        let mut to_shutter_idxs: Vec<usize> = Vec::new();
-        for (idx, win) in windows.wins.iter_mut().enumerate() {
-            let ok = win.step(new_camera_buffer.clone());
-            if !ok {
-                to_shutter_idxs.push(idx);
-            }
-        }
-
-        for idx in to_shutter_idxs.into_iter().rev() {
-            windows.shutter(idx).expect("shutter borked, idx wrong?");
-        }
-    }
-}
-
-struct Windows {
-    wins: Vec<Win>,
-}
-
-impl Windows {
-    fn new() -> Result<Windows> {
-        let win = Win::new().context("Win oopsie")?;
-        Ok(Windows { wins: vec![win] })
-    }
-
-    fn open(&mut self) -> Result<()> {
-        let win = Win::new().context("Win oopsie")?;
-        self.wins.push(win);
-
-        Ok(())
-    }
-
-    fn shutter(&mut self, idx: usize) -> Result<()> {
-        if idx >= self.wins.len() {
-            bail!("idx is out of bounds");
-        }
-
-        self.wins.remove(idx);
-        Ok(())
+        wins_man.step_wins(next_frame_buf);
     }
 }
