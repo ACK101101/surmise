@@ -4,7 +4,7 @@ use crate::config::{
 };
 use crate::geometry::{Point, Rect};
 use crate::transform::{
-    average, calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32, reflect_y,
+    average, calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32,
 };
 
 use anyhow::Result;
@@ -54,9 +54,11 @@ pub enum WinStepOutcome {
 }
 
 impl Win {
-    pub fn new() -> Result<Win> {
+    pub fn new(idx: usize) -> Result<Win> {
+        let name = format!("surmise {idx}");
         log::debug!(
-            "Window Dims: ({}, {})",
+            "Window {} Dims: ({}, {})",
+            name,
             DEFAULT_WINDOW_WIDTH,
             DEFAULT_WINDOW_HEIGHT
         );
@@ -65,7 +67,7 @@ impl Win {
         log::debug!("Pixel Chunk Dims: {pixel_chunk:?}");
 
         let window = Window::new(
-            "surmise",
+            &name,
             DEFAULT_WINDOW_WIDTH,
             DEFAULT_WINDOW_HEIGHT,
             WindowOptions {
@@ -113,10 +115,8 @@ impl Win {
         log::debug!("Source Chunk Dims: {source_chunk_dims:?}");
         log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
 
-        let flipped_buf = reflect_y(&raw_buf);
-
         let downsampled = downsample(
-            flipped_buf,
+            raw_buf,
             origin,
             Rect::from(self.window.get_size()),
             self.pixel_chunk,

@@ -30,7 +30,7 @@ fn main() {
     };
 
     while wins_man.is_alive() {
-        let next_frame_buf = match camera.next_frame() {
+        let mut next_frame_buf = match camera.next_frame() {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("Camera oopsie: {e}");
@@ -38,6 +38,6 @@ fn main() {
             }
         };
 
-        wins_man.step_wins(next_frame_buf);
+        wins_man.step_wins(&mut next_frame_buf);
     }
 }

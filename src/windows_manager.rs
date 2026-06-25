@@ -1,4 +1,5 @@
 use crate::window::{Win, WinStepOutcome};
+use crate::transform::reflect_y;
 
 use image::RgbImage;
 
@@ -6,21 +7,24 @@ use anyhow::{Context, Result, bail};
 
 pub struct WindowsManager {
     wins: Vec<Win>,
+    num_spawned: usize,
 }
 
 impl WindowsManager {
     pub fn new() -> Result<WindowsManager> {
-        let win = Win::new().context("Win oopsie")?;
-        Ok(WindowsManager { wins: vec![win] })
+        let win = Win::new(0).context("Win oopsie")?;
+        Ok(WindowsManager { wins: vec![win], num_spawned: 1 })
     }
 
     pub fn is_alive(&mut self) -> bool {
         !self.wins.is_empty()
     }
 
-    pub fn step_wins(&mut self, next_frame_buf: RgbImage) {
+    pub fn step_wins(&mut self, next_frame_buf: &mut RgbImage) {
         let mut to_shutter_idxs: Vec<usize> = Vec::new();
         let mut win_to_open = 0;
+
+        reflect_y(next_frame_buf);
 
         for (idx, win) in self.wins.iter_mut().enumerate() {
             match win.step(next_frame_buf.clone()) {
@@ -40,8 +44,9 @@ impl WindowsManager {
     }
 
     fn open(&mut self) -> Result<()> {
-        let win = Win::new().context("Win oopsie")?;
+        let win = Win::new(self.num_spawned).context("Win oopsie")?;
         self.wins.push(win);
+        self.num_spawned += 1;
 
         Ok(())
     }

@@ -119,12 +119,15 @@ fn scale_rbg(pix: Rgb<u8>, numerator: usize, denominator: usize) -> Rgb<u8> {
     ])
 }
 
-pub fn reflect_y(image: &RgbImage) -> RgbImage {
-    let (w, h) = image.dimensions();
-    let mut new_image = RgbImage::new(w, h);
-    for (x, y, p) in image.enumerate_pixels() {
-        new_image.put_pixel(w - x - 1, y, *p);
+pub fn reflect_y(image: &mut RgbImage) {
+    let w = image.width() as usize;
+    let row_len = w * 3; // raw pixel is stored as 3 u8's
+    for row in image.chunks_exact_mut(row_len) {
+        for i in 0..w / 2 {
+            let (p_i_start, p_j_start) = (i * 3, (w - 1 - i) * 3);
+            row.swap(p_i_start, p_j_start);
+            row.swap(p_i_start + 1, p_j_start + 1);
+            row.swap(p_i_start + 2, p_j_start + 2);
+        }
     }
-
-    new_image
 }
