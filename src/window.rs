@@ -4,8 +4,7 @@ use crate::config::{
 };
 use crate::geometry::{Point, Rect};
 use crate::transform::{
-    average, calc_source_chunk_dims, downsample, lattice::PixelLattice,
-    rbg_image_to_u32, reflect_y,
+    average, calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32, reflect_y,
 };
 
 use anyhow::Result;

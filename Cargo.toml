@@ -9,6 +9,8 @@ env_logger = "0.11.10"
 image = "0.25.10"
 log = "0.4.29"
 minifb = "0.28.0"
+puffin = "0.20.0"
+puffin_http = "0.17.0"
 
 [dependencies.nokhwa]
 version = "0.10.10"

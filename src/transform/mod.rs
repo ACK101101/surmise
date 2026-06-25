@@ -1,7 +1,7 @@
 pub mod average;
 pub mod lattice;
 
-use crate::window::{EffectMode};
+use crate::window::EffectMode;
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
 

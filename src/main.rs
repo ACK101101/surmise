@@ -7,8 +7,8 @@ mod camera;
 use camera::*;
 
 mod config;
-mod transform;
 mod geometry;
+mod transform;
 
 fn main() {
     env_logger::init();
