@@ -12,6 +12,7 @@ use image::RgbImage;
 use minifb::*;
 use std::fmt;
 
+// Window Effect Modes
 #[derive(Copy, Clone)]
 pub enum EffectMode {
     Default,
@@ -39,6 +40,7 @@ impl EffectMode {
     }
 }
 
+// Per Window Handling
 pub struct Win {
     window: Window,
     pixel_chunk: Rect,
@@ -89,18 +91,23 @@ impl Win {
         })
     }
 
-    pub fn step(&mut self, raw_buf: RgbImage) -> WinStepOutcome {
-        let outcome = self.update_pix_size_and_mode();
+    pub fn step(&mut self, raw_buf: &RgbImage) -> WinStepOutcome {
+        let outcome = self.determine_win_outcome();
         if matches!(outcome, WinStepOutcome::Shutter) {
             return outcome;
         }
 
-        let raw_dims: Rect = Rect::new(raw_buf.width(), raw_buf.height());
-        log::debug!("Raw Image Dims: {raw_dims:?}");
+        let (win_w, win_h) = self.window.get_size();
+        let curr_win_dims = Rect::new(win_w as u32, win_h as u32);
+        let source_dims: Rect = Rect::new(raw_buf.width(), raw_buf.height());
+        log::debug!("Raw Image Dims: {source_dims:?}");
+
+        let updated_pixel_chunk = self.update_pixel_chunk(curr_win_dims);
+        self.update_effect_mode(curr_win_dims, updated_pixel_chunk);
 
         let (pixel_chunk_matrix, source_chunk_dims, origin) = match calc_source_chunk_dims(
-            raw_dims,
-            Rect::from(self.window.get_size()), // note: I don't think this works well with Rectangle resizing... idk why
+            source_dims,
+            curr_win_dims,
             Point::from(self.window.get_position()),
             self.pixel_chunk,
             self.effect_mode,
@@ -118,7 +125,7 @@ impl Win {
         let downsampled = downsample(
             raw_buf,
             origin,
-            Rect::from(self.window.get_size()),
+            curr_win_dims,
             self.pixel_chunk,
             pixel_chunk_matrix,
             source_chunk_dims,
@@ -129,10 +136,9 @@ impl Win {
 
         let update_buffer = rbg_image_to_u32(&downsampled);
 
-        let (w, h) = self.window.get_size();
         match self
             .window
-            .update_with_buffer(update_buffer.as_slice(), w, h)
+            .update_with_buffer(update_buffer.as_slice(), win_w, win_h)
         {
             Ok(u) => u,
             Err(e) => {
@@ -144,84 +150,83 @@ impl Win {
         outcome
     }
 
-    // TODO: god this is ugly
-    fn update_pix_size_and_mode(&mut self) -> WinStepOutcome {
-        let mut outcome = WinStepOutcome::Continue;
-        let (w, h) = self.window.get_size();
-        let (window_width, window_height) = (w as u32, h as u32);
-        let (mut pixel_width, mut pixel_height) = self.pixel_chunk.get_dims();
-        let mut dirty_pixel_chunk = false;
-
+    fn determine_win_outcome(&self) -> WinStepOutcome {
         // determine if want to shutter or open window
-        if !self.window.is_open() || self.window.is_key_down(Key::Escape) {
+        if !self.window.is_open()
+            || self.window.is_key_down(Key::Escape)
+            || self.window.is_key_pressed(Key::Q, KeyRepeat::No)
+        {
             return WinStepOutcome::Shutter;
-        } else if self.window.is_key_pressed(Key::Q, KeyRepeat::No) {
-            outcome = WinStepOutcome::Shutter
-        } else if self.window.is_key_pressed(Key::N, KeyRepeat::No) {
-            outcome = WinStepOutcome::Open
         }
 
-        // update local pixel_chunk width
-        if self.window.is_key_pressed(Key::Right, KeyRepeat::No) && pixel_width > 1 {
-            pixel_width /= 2;
-            dirty_pixel_chunk = true;
-        } else if self.window.is_key_pressed(Key::Left, KeyRepeat::No)
-            && pixel_width < window_width / 2
-        {
-            pixel_width *= 2;
-            dirty_pixel_chunk = true;
+        if self.window.is_key_pressed(Key::N, KeyRepeat::No) {
+            return WinStepOutcome::Open;
         }
 
-        // update local pixel_chunk height
-        if self.window.is_key_pressed(Key::Down, KeyRepeat::No) && pixel_height > 1 {
-            pixel_height /= 2;
-            dirty_pixel_chunk = true;
-        } else if self.window.is_key_pressed(Key::Up, KeyRepeat::No)
-            && pixel_height < window_height / 2
+        WinStepOutcome::Continue
+    }
+
+    fn update_pixel_chunk(&mut self, curr_win_dims: Rect) -> bool {
+        let (curr_win_w, curr_win_h) = curr_win_dims.get_dims();
+        let (curr_pix_w, curr_pix_h) = self.pixel_chunk.get_dims();
+        let (new_pix_w, new_pix_h): (u32, u32);
+
+        // calc new pixel width
+        if curr_pix_w > 1
+            && (self.window.is_key_pressed(Key::Right, KeyRepeat::No)
+                || self.window.is_key_pressed(Key::LeftBracket, KeyRepeat::No))
         {
-            pixel_height *= 2;
-            dirty_pixel_chunk = true;
+            new_pix_w = curr_pix_w / 2;
+        } else if curr_pix_w < curr_win_w / 2
+            && (self.window.is_key_pressed(Key::Left, KeyRepeat::No)
+                || self.window.is_key_pressed(Key::RightBracket, KeyRepeat::No))
+        {
+            new_pix_w = curr_pix_w * 2;
+        } else {
+            new_pix_w = curr_pix_w;
         }
 
-        // update local pixel_chunk width and height together
-        if self.window.is_key_pressed(Key::LeftBracket, KeyRepeat::No)
-            && pixel_width > 1
-            && pixel_height > 1
+        // calc new pixel height
+        if curr_pix_h > 1
+            && (self.window.is_key_pressed(Key::Down, KeyRepeat::No)
+                || self.window.is_key_pressed(Key::LeftBracket, KeyRepeat::No))
         {
-            pixel_width /= 2;
-            pixel_height /= 2;
-            dirty_pixel_chunk = true;
-        } else if self.window.is_key_pressed(Key::RightBracket, KeyRepeat::No)
-            && pixel_width < window_width / 2
-            && pixel_height < window_height / 2
+            new_pix_h = curr_pix_h / 2;
+        } else if curr_pix_h < curr_win_h / 2
+            && (self.window.is_key_pressed(Key::Up, KeyRepeat::No)
+                || self.window.is_key_pressed(Key::RightBracket, KeyRepeat::No))
         {
-            pixel_width *= 2;
-            pixel_height *= 2;
-            dirty_pixel_chunk = true;
+            new_pix_h = curr_pix_h * 2;
+        } else {
+            new_pix_h = curr_pix_h;
         }
 
-        // update pixel_chunk state
-        self.pixel_chunk.resize(pixel_width, pixel_height);
+        if new_pix_w != curr_pix_w && new_pix_h != curr_pix_h {
+            return false;
+        }
+
+        self.pixel_chunk.resize(new_pix_w, new_pix_h);
+        true
+    }
+
+    fn update_effect_mode(&mut self, curr_win_dims: Rect, updated_pixel_chunk: bool) {
+        let (win_w, win_h) = curr_win_dims.get_dims();
+        let (pix_w, pix_h) = self.pixel_chunk.get_dims();
 
         // switch mode
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
             self.effect_mode.toggle();
             log::debug!("Toggled {}!", self.effect_mode);
-            if matches!(self.effect_mode, EffectMode::Sma) {
-                dirty_pixel_chunk = true;
-            }
         }
 
-        // update memory
-        if dirty_pixel_chunk && matches!(self.effect_mode, EffectMode::Sma) {
-            let pixel_lattice = PixelLattice::new(
-                w / pixel_width as usize,
-                h / pixel_height as usize,
+        if updated_pixel_chunk && matches!(self.effect_mode, EffectMode::Sma) {
+            self.memory = PixelLattice::new(
+                (win_w / pix_w) as usize,
+                (win_h / pix_h) as usize,
                 SMA_WINDOW_SIZE,
             );
-            self.memory = pixel_lattice;
         }
-
-        outcome
     }
+
+    // TODO: not checking if window size gets changed! not resetting important things if so
 }

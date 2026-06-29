@@ -21,7 +21,7 @@ pub fn calc_source_chunk_dims(
     }
 
     // figure out how many chunky pixels fit into the target
-    let pixel_chunk_matrix = window_dims / pixel_dims; // TODO: rename, not really a matrix
+    let pixel_chunk_dims = window_dims / pixel_dims;
 
     let relevant_source_dims: Rect = match mode {
         EffectMode::Reveal => window_dims,
@@ -29,7 +29,7 @@ pub fn calc_source_chunk_dims(
     };
 
     // based on matrix of chunky pixels, map source chunks to pixel chunks
-    let source_chunk_dims = relevant_source_dims / pixel_chunk_matrix;
+    let source_chunk_dims = relevant_source_dims / pixel_chunk_dims;
 
     // where to start processing source image
     let origin: Point = match mode {
@@ -37,11 +37,11 @@ pub fn calc_source_chunk_dims(
         _ => Point { x: 0, y: 0 },
     };
 
-    Ok((pixel_chunk_matrix, source_chunk_dims, origin))
+    Ok((pixel_chunk_dims, source_chunk_dims, origin))
 }
 
 pub fn downsample(
-    source: RgbImage,
+    source: &RgbImage,
     origin: Point,
     window_dims: Rect,
     pixel_dims: Rect,

@@ -9,6 +9,7 @@ use camera::*;
 mod config;
 mod geometry;
 mod transform;
+use crate::transform::reflect_y;
 
 fn main() {
     env_logger::init();
@@ -38,6 +39,8 @@ fn main() {
             }
         };
 
-        wins_man.step_wins(&mut next_frame_buf);
+        reflect_y(&mut next_frame_buf);
+
+        wins_man.step_wins(&next_frame_buf);
     }
 }
