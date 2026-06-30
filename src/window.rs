@@ -73,9 +73,7 @@ impl Win {
             DEFAULT_WINDOW_WIDTH,
             DEFAULT_WINDOW_HEIGHT,
             WindowOptions {
-                borderless: true,
                 resize: true,
-                transparency: true,
                 ..WindowOptions::default()
             },
         )?;
@@ -105,7 +103,7 @@ impl Win {
         let updated_pixel_chunk = self.update_pixel_chunk(curr_win_dims);
         self.update_effect_mode(curr_win_dims, updated_pixel_chunk);
 
-        let (pixel_chunk_matrix, source_chunk_dims, origin) = match calc_source_chunk_dims(
+        let (pixel_chunk_matrix, source_chunk_matrix, origin) = match calc_source_chunk_dims(
             source_dims,
             curr_win_dims,
             Point::from(self.window.get_position()),
@@ -119,7 +117,7 @@ impl Win {
             }
         };
 
-        log::debug!("Source Chunk Dims: {source_chunk_dims:?}");
+        log::debug!("Source Chunk Matrix: {source_chunk_matrix:?}");
         log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
 
         let downsampled = downsample(
@@ -128,7 +126,7 @@ impl Win {
             curr_win_dims,
             self.pixel_chunk,
             pixel_chunk_matrix,
-            source_chunk_dims,
+            source_chunk_matrix,
             average::average,
             self.effect_mode,
             &mut self.memory,
@@ -143,7 +141,6 @@ impl Win {
             Ok(u) => u,
             Err(e) => {
                 eprintln!("Update oopsie: {e}");
-                return outcome;
             }
         };
 
@@ -201,7 +198,7 @@ impl Win {
             new_pix_h = curr_pix_h;
         }
 
-        if new_pix_w != curr_pix_w && new_pix_h != curr_pix_h {
+        if new_pix_w == curr_pix_w && new_pix_h == curr_pix_h {
             return false;
         }
 
@@ -214,12 +211,14 @@ impl Win {
         let (pix_w, pix_h) = self.pixel_chunk.get_dims();
 
         // switch mode
+        let mut toggled = false;
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
             self.effect_mode.toggle();
+            toggled = true;
             log::debug!("Toggled {}!", self.effect_mode);
         }
 
-        if updated_pixel_chunk && matches!(self.effect_mode, EffectMode::Sma) {
+        if matches!(self.effect_mode, EffectMode::Sma) && (updated_pixel_chunk || toggled) {
             self.memory = PixelLattice::new(
                 (win_w / pix_w) as usize,
                 (win_h / pix_h) as usize,

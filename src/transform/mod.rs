@@ -7,6 +7,7 @@ use image::{Rgb, RgbImage};
 
 use crate::geometry::{Point, Rect};
 
+// TODO: maybe fold in window.rs for clarity
 pub fn calc_source_chunk_dims(
     source_dims: Rect,
     window_dims: Rect,
@@ -21,15 +22,15 @@ pub fn calc_source_chunk_dims(
     }
 
     // figure out how many chunky pixels fit into the target
-    let pixel_chunk_dims = window_dims / pixel_dims;
+    let pixel_chunk_matrix = window_dims / pixel_dims;
 
-    let relevant_source_dims: Rect = match mode {
+    let relevant_source_matrix: Rect = match mode {
         EffectMode::Reveal => window_dims,
         _ => source_dims,
     };
 
     // based on matrix of chunky pixels, map source chunks to pixel chunks
-    let source_chunk_dims = relevant_source_dims / pixel_chunk_dims;
+    let source_chunk_matrix = relevant_source_matrix / pixel_chunk_matrix;
 
     // where to start processing source image
     let origin: Point = match mode {
@@ -37,7 +38,7 @@ pub fn calc_source_chunk_dims(
         _ => Point { x: 0, y: 0 },
     };
 
-    Ok((pixel_chunk_dims, source_chunk_dims, origin))
+    Ok((pixel_chunk_matrix, source_chunk_matrix, origin))
 }
 
 pub fn downsample(
@@ -46,7 +47,7 @@ pub fn downsample(
     window_dims: Rect,
     pixel_dims: Rect,
     pixel_chunk_matrix: Rect,
-    source_chunk_dims: Rect,
+    source_chunk_matrix: Rect,
     sampler: impl Fn(&RgbImage, Point, Rect) -> Rgb<u8>,
     mode: EffectMode,
     memory: &mut lattice::PixelLattice,
@@ -54,7 +55,7 @@ pub fn downsample(
     let (window_width, window_height) = window_dims.get_dims();
     let (pixel_width, pixel_height) = pixel_dims.get_dims();
     let (pixel_matrix_width, pixel_matrix_height) = pixel_chunk_matrix.get_dims();
-    let (source_width, source_height) = source_chunk_dims.get_dims();
+    let (source_width, source_height) = source_chunk_matrix.get_dims();
     let mut new_image: RgbImage = RgbImage::new(window_width, window_height);
 
     let use_memory = matches!(mode, EffectMode::Sma)
@@ -68,7 +69,7 @@ pub fn downsample(
                 y: origin.y + (row_i * source_height) as i32,
             };
 
-            let mut new_pixel_value = sampler(&source, top_left, source_chunk_dims);
+            let mut new_pixel_value = sampler(&source, top_left, source_chunk_matrix);
 
             if use_memory {
                 new_pixel_value = memory.sma(new_pixel_value, row_i, col_i);

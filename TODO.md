@@ -1,10 +1,7 @@
 # TODOs
 
-[ ] Black frames with multiple windows, profile & tune
-  - expensive camera buffer copies?
-[ ] Fix stride bug
-  - lock window dims per step?
-[ ] Fix windows sharing a mode bug
-[ ] Fix SMA reset on resize bug
+[ ] Mangled output with multiple frames & diff modes
+  - shared state between windows?
+  - wrong win dims? bad stride? window scale?
+[ ] SMA no longer works
 [ ] Read thread & write thread
-[ ] Refactor window::update_pix_size_and_mode

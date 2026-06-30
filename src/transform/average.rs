@@ -1,11 +1,11 @@
 use super::{Point, Rect};
 use image::{Rgb, RgbImage};
 
-pub fn average(image: &RgbImage, top_left: Point, chunk_dims: Rect) -> Rgb<u8> {
+pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8> {
     let (w, h) = image.dimensions();
     let (w, h) = (w as i32, h as i32);
     let (mut r, mut g, mut b) = (0u32, 0u32, 0u32);
-    let (chunk_width, chunk_height) = chunk_dims.get_dims();
+    let (chunk_width, chunk_height) = chunk_matrix.get_dims();
 
     for x_i in top_left.x..top_left.x + chunk_width as i32 {
         for y_i in top_left.y..top_left.y + chunk_height as i32 {
@@ -21,7 +21,7 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_dims: Rect) -> Rgb<u8> {
         }
     }
 
-    let num_pixels = chunk_dims.area();
+    let num_pixels = chunk_matrix.area();
 
     Rgb([
         (r / num_pixels) as u8,
