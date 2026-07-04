@@ -7,6 +7,8 @@ mod camera;
 use camera::*;
 
 mod config;
+use crate::config::FRAME_SAMPLING_WINDOW;
+
 mod geometry;
 mod transform;
 use crate::transform::reflect_y;
@@ -30,6 +32,8 @@ fn main() {
         }
     };
 
+    let mut frames_processed: u64 = 0;
+    let mut frame_times = std::time::Duration::new(0, 0);
     while wins_man.is_alive() {
         let mut next_frame_buf = match camera.next_frame() {
             Ok(b) => b,
@@ -39,8 +43,24 @@ fn main() {
             }
         };
 
+        let start = std::time::Instant::now();
+
         reflect_y(&mut next_frame_buf);
 
         wins_man.step_wins(&next_frame_buf);
+
+        frames_processed += 1;
+        frame_times += start.elapsed();
+        if frames_processed % FRAME_SAMPLING_WINDOW == 0 {
+            eprint!(
+                "\rFrame {}: {:.3}ms / frame ({} wins)",
+                frames_processed,
+                (frame_times.as_secs_f64() / FRAME_SAMPLING_WINDOW as f64) * 1000.0,
+                wins_man.num_open()
+            );
+            frame_times = std::time::Duration::new(0, 0);
+        }
     }
+
+    eprintln!("")
 }

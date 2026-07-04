@@ -5,3 +5,5 @@ pub const DEFAULT_PIXEL_WIDTH: usize = 32;
 pub const DEFAULT_PIXEL_HEIGHT: usize = 16;
 
 pub const SMA_WINDOW_SIZE: usize = 30;
+
+pub const FRAME_SAMPLING_WINDOW: u64 = 100;

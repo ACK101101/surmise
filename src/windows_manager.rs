@@ -43,6 +43,10 @@ impl WindowsManager {
         }
     }
 
+    pub fn num_open(&self) -> usize {
+        self.wins.len()
+    }
+
     fn open(&mut self) -> Result<()> {
         let win = Win::new(self.num_spawned).context("Win oopsie")?;
         self.wins.push(win);

@@ -10,6 +10,13 @@ image = "0.25.10"
 log = "0.4.29"
 minifb = "0.28.0"
 
+[[bench]]
+name = "benchmark"
+harness = false
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+
 [dependencies.nokhwa]
 version = "0.10.10"
 features = ["input-native"]
