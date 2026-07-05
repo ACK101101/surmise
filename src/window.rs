@@ -4,7 +4,7 @@ use crate::config::{
 };
 use crate::geometry::{Point, Rect};
 use crate::transform::{
-    average, calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32,
+    calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32,
 };
 
 use anyhow::Result;
@@ -127,7 +127,6 @@ impl Win {
             self.pixel_chunk,
             pixel_chunk_matrix,
             source_chunk_matrix,
-            average::average,
             self.effect_mode,
             &mut self.memory,
         );

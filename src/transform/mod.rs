@@ -1,4 +1,3 @@
-pub mod average;
 pub mod lattice;
 
 use crate::window::EffectMode;
@@ -48,7 +47,6 @@ pub fn downsample(
     pixel_dims: Rect,
     pixel_chunk_matrix: Rect,
     source_chunk_matrix: Rect,
-    sampler: impl Fn(&RgbImage, Point, Rect) -> Rgb<u8>,
     mode: EffectMode,
     memory: &mut lattice::PixelLattice,
 ) -> RgbImage {
@@ -69,7 +67,7 @@ pub fn downsample(
                 y: origin.y + (row_i * source_height) as i32,
             };
 
-            let mut new_pixel_value = sampler(&source, top_left, source_chunk_matrix);
+            let mut new_pixel_value = average(&source, top_left, source_chunk_matrix);
 
             if use_memory {
                 new_pixel_value = memory.sma(new_pixel_value, row_i, col_i);
@@ -89,6 +87,35 @@ pub fn downsample(
     }
 
     new_image
+}
+
+pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8> {
+    let (w, h) = image.dimensions();
+    let (w, h) = (w as i32, h as i32);
+    let (mut r, mut g, mut b) = (0u32, 0u32, 0u32);
+    let (chunk_width, chunk_height) = chunk_matrix.get_dims();
+
+    for x_i in top_left.x..top_left.x + chunk_width as i32 {
+        for y_i in top_left.y..top_left.y + chunk_height as i32 {
+            // protect against grabbing pixels outside image for reveal mode
+            if x_i < 0 || x_i >= w || y_i < 0 || y_i >= h {
+                continue;
+            }
+
+            let pixel = image.get_pixel(x_i as u32, y_i as u32);
+            r += pixel.0[0] as u32;
+            g += pixel.0[1] as u32;
+            b += pixel.0[2] as u32;
+        }
+    }
+
+    let num_pixels = chunk_matrix.area();
+
+    Rgb([
+        (r / num_pixels) as u8,
+        (g / num_pixels) as u8,
+        (b / num_pixels) as u8,
+    ])
 }
 
 pub fn rbg_image_to_u32(image: &RgbImage) -> Vec<u32> {
