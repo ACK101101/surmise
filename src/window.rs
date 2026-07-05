@@ -40,12 +40,69 @@ impl EffectMode {
     }
 }
 
-// Per Window Handling
-pub struct Win {
-    window: Window,
+// Window State Handling
+pub struct WindowState {
+    win_size_snap: Rect,
+    win_pos_snap: Point,
     pixel_chunk: Rect,
     memory: PixelLattice,
     effect_mode: EffectMode,
+}
+
+impl WindowState {
+    pub fn new(
+        win_size_snap: Rect,
+        win_pos_snap: Point,
+        pixel_chunk: Rect,
+        memory: PixelLattice,
+        effect_mode: EffectMode,
+    ) -> WindowState {
+        WindowState {
+            win_size_snap,
+            win_pos_snap,
+            pixel_chunk,
+            memory,
+            effect_mode,
+        }
+    }
+
+    pub fn calculate_frame(&mut self, raw_buf: &RgbImage) -> Result<Vec<u32>> {
+        let (pixel_chunk_matrix, source_chunk_matrix, origin) = match calc_source_chunk_dims(
+            Rect::new(raw_buf.width(), raw_buf.height()),
+            self.win_size_snap,
+            self.win_pos_snap,
+            self.pixel_chunk,
+            self.effect_mode,
+        ) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Chunking oopsie: {e}");
+                return Err(e);
+            }
+        };
+
+        log::debug!("Source Chunk Matrix: {source_chunk_matrix:?}");
+        log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
+
+        let downsampled = downsample(
+            raw_buf,
+            origin,
+            self.win_size_snap,
+            self.pixel_chunk,
+            pixel_chunk_matrix,
+            source_chunk_matrix,
+            self.effect_mode,
+            &mut self.memory,
+        );
+
+        Ok(rbg_image_to_u32(&downsampled))
+    }
+}
+
+// Per Window Handling
+pub struct Win {
+    window: Window,
+    win_state: WindowState,
 }
 
 #[derive(Clone, Copy)]
@@ -78,15 +135,15 @@ impl Win {
             },
         )?;
 
-        let pixel_matrix =
-            PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE);
-
-        Ok(Win {
-            window,
+        let win_state = WindowState::new(
+            Rect::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32),
+            Point { x: 0, y: 0 },
             pixel_chunk,
-            memory: pixel_matrix,
-            effect_mode: EffectMode::Default,
-        })
+            PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE),
+            EffectMode::Default,
+        );
+
+        Ok(Win { window, win_state })
     }
 
     pub fn step(&mut self, raw_buf: &RgbImage) -> WinStepOutcome {
@@ -95,52 +152,28 @@ impl Win {
             return outcome;
         }
 
-        let (win_w, win_h) = self.window.get_size();
-        let curr_win_dims = Rect::new(win_w as u32, win_h as u32);
+        self.update_win_size_pos_snapshot();
+
         let source_dims: Rect = Rect::new(raw_buf.width(), raw_buf.height());
         log::debug!("Raw Image Dims: {source_dims:?}");
 
-        let updated_pixel_chunk = self.update_pixel_chunk(curr_win_dims);
-        self.update_effect_mode(curr_win_dims, updated_pixel_chunk);
+        let updated_pixel_chunk = self.update_pixel_chunk();
+        self.update_effect_mode(updated_pixel_chunk);
 
-        let (pixel_chunk_matrix, source_chunk_matrix, origin) = match calc_source_chunk_dims(
-            source_dims,
-            curr_win_dims,
-            Point::from(self.window.get_position()),
-            self.pixel_chunk,
-            self.effect_mode,
-        ) {
-            Ok(c) => c,
+        let update_buffer = match self.win_state.calculate_frame(raw_buf) {
+            Ok(buf) => buf,
             Err(e) => {
-                eprintln!("Chunking oopsie: {e}");
+                eprintln!("Calc frame oopsie: {e}");
                 return outcome;
             }
         };
 
-        log::debug!("Source Chunk Matrix: {source_chunk_matrix:?}");
-        log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
-
-        let downsampled = downsample(
-            raw_buf,
-            origin,
-            curr_win_dims,
-            self.pixel_chunk,
-            pixel_chunk_matrix,
-            source_chunk_matrix,
-            self.effect_mode,
-            &mut self.memory,
-        );
-
-        let update_buffer = rbg_image_to_u32(&downsampled);
-
-        match self
-            .window
-            .update_with_buffer(update_buffer.as_slice(), win_w, win_h)
-        {
-            Ok(u) => u,
-            Err(e) => {
-                eprintln!("Update oopsie: {e}");
-            }
+        if let Err(e) = self.window.update_with_buffer(
+            update_buffer.as_slice(),
+            self.win_state.win_size_snap.get_width() as usize,
+            self.win_state.win_size_snap.get_height() as usize,
+        ) {
+            eprintln!("Update oopsie: {e}");
         };
 
         outcome
@@ -162,9 +195,20 @@ impl Win {
         WinStepOutcome::Continue
     }
 
-    fn update_pixel_chunk(&mut self, curr_win_dims: Rect) -> bool {
-        let (curr_win_w, curr_win_h) = curr_win_dims.get_dims();
-        let (curr_pix_w, curr_pix_h) = self.pixel_chunk.get_dims();
+    fn update_win_size_pos_snapshot(&mut self) {
+        let (win_w, win_h) = self.window.get_size();
+        self.win_state.win_size_snap = Rect::new(win_w as u32, win_h as u32);
+
+        let (win_x, win_y) = self.window.get_position();
+        self.win_state.win_pos_snap = Point {
+            x: win_x as i32,
+            y: win_y as i32,
+        };
+    }
+
+    fn update_pixel_chunk(&mut self) -> bool {
+        let (curr_win_w, curr_win_h) = self.win_state.win_size_snap.get_dims();
+        let (curr_pix_w, curr_pix_h) = self.win_state.pixel_chunk.get_dims();
         let (new_pix_w, new_pix_h): (u32, u32);
 
         // calc new pixel width
@@ -201,24 +245,25 @@ impl Win {
             return false;
         }
 
-        self.pixel_chunk.resize(new_pix_w, new_pix_h);
+        self.win_state.pixel_chunk.resize(new_pix_w, new_pix_h);
         true
     }
 
-    fn update_effect_mode(&mut self, curr_win_dims: Rect, updated_pixel_chunk: bool) {
-        let (win_w, win_h) = curr_win_dims.get_dims();
-        let (pix_w, pix_h) = self.pixel_chunk.get_dims();
+    fn update_effect_mode(&mut self, updated_pixel_chunk: bool) {
+        let (win_w, win_h) = self.win_state.win_size_snap.get_dims();
+        let (pix_w, pix_h) = self.win_state.pixel_chunk.get_dims();
 
         // switch mode
         let mut toggled = false;
         if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
-            self.effect_mode.toggle();
+            self.win_state.effect_mode.toggle();
             toggled = true;
-            log::debug!("Toggled {}!", self.effect_mode);
+            log::debug!("Toggled {}!", self.win_state.effect_mode);
         }
 
-        if matches!(self.effect_mode, EffectMode::Sma) && (updated_pixel_chunk || toggled) {
-            self.memory = PixelLattice::new(
+        if matches!(self.win_state.effect_mode, EffectMode::Sma) && (updated_pixel_chunk || toggled)
+        {
+            self.win_state.memory = PixelLattice::new(
                 (win_w / pix_w) as usize,
                 (win_h / pix_h) as usize,
                 SMA_WINDOW_SIZE,
