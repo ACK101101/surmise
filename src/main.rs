@@ -35,7 +35,8 @@ fn main() {
     let mut frames_processed: u64 = 0;
     let mut frame_times = std::time::Duration::new(0, 0);
     while wins_man.is_alive() {
-        let mut next_frame_buf = match camera.next_frame() {
+        // TODO: careful with this mut in future
+        let mut next_frame = match camera.next_frame() {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("Camera oopsie: {e}");
@@ -45,9 +46,9 @@ fn main() {
 
         let start = std::time::Instant::now();
 
-        reflect_y(&mut next_frame_buf);
+        reflect_y(&mut next_frame);
 
-        wins_man.step_wins(&next_frame_buf);
+        wins_man.step_wins(&next_frame);
 
         frames_processed += 1;
         frame_times += start.elapsed();

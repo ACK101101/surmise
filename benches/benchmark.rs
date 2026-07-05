@@ -79,7 +79,7 @@ fn calculate_frame_bench(c: &mut Criterion) {
                 mode,
             );
 
-            b.iter(|| win_state.calculate_frame(&image));
+            b.iter(|| win_state.calculate_and_save_frame(&image));
         });
     }
 

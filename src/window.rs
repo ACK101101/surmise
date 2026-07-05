@@ -1,6 +1,6 @@
 use crate::config::{
-    DEFAULT_PIXEL_HEIGHT, DEFAULT_PIXEL_WIDTH, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
-    SMA_WINDOW_SIZE,
+    DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH, DEFAULT_PIXEL_HEIGHT, DEFAULT_PIXEL_WIDTH,
+    DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, SMA_WINDOW_SIZE,
 };
 use crate::geometry::{Point, Rect};
 use crate::transform::{
@@ -42,6 +42,7 @@ impl EffectMode {
 
 // Window State Handling
 pub struct WindowState {
+    frame: Vec<u32>,
     win_size_snap: Rect,
     win_pos_snap: Point,
     pixel_chunk: Rect,
@@ -58,6 +59,7 @@ impl WindowState {
         effect_mode: EffectMode,
     ) -> WindowState {
         WindowState {
+            frame: vec![0u32; DEFAULT_CAMERA_WIDTH * DEFAULT_CAMERA_HEIGHT],
             win_size_snap,
             win_pos_snap,
             pixel_chunk,
@@ -66,7 +68,7 @@ impl WindowState {
         }
     }
 
-    pub fn calculate_frame(&mut self, raw_buf: &RgbImage) -> Result<Vec<u32>> {
+    pub fn calculate_and_save_frame(&mut self, raw_buf: &RgbImage) -> Result<()> {
         let (pixel_chunk_matrix, source_chunk_matrix, origin) = match calc_source_chunk_dims(
             Rect::new(raw_buf.width(), raw_buf.height()),
             self.win_size_snap,
@@ -95,7 +97,9 @@ impl WindowState {
             &mut self.memory,
         );
 
-        Ok(rbg_image_to_u32(&downsampled))
+        self.frame = rbg_image_to_u32(&downsampled);
+
+        Ok(())
     }
 }
 
@@ -160,21 +164,18 @@ impl Win {
         let updated_pixel_chunk = self.update_pixel_chunk();
         self.update_effect_mode(updated_pixel_chunk);
 
-        let update_buffer = match self.win_state.calculate_frame(raw_buf) {
-            Ok(buf) => buf,
-            Err(e) => {
-                eprintln!("Calc frame oopsie: {e}");
-                return outcome;
-            }
+        if let Err(e) = self.win_state.calculate_and_save_frame(raw_buf) {
+            eprintln!("Calc frame oopsie: {e}");
+            return outcome;
         };
 
         if let Err(e) = self.window.update_with_buffer(
-            update_buffer.as_slice(),
+            &self.win_state.frame,
             self.win_state.win_size_snap.get_width() as usize,
             self.win_state.win_size_snap.get_height() as usize,
         ) {
             eprintln!("Update oopsie: {e}");
-        };
+        }
 
         outcome
     }

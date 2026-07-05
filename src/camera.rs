@@ -1,9 +1,12 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Error, Result};
 use image::RgbImage;
 use nokhwa::{Camera, pixel_format::RgbFormat, utils::*};
 
+use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
+
 pub struct Cam {
     camera: Camera,
+    frame: RgbImage,
 }
 
 impl Cam {
@@ -18,26 +21,17 @@ impl Cam {
         // tries to open camera stream
         camera.open_stream()?;
 
-        Ok(Cam { camera })
+        Ok(Cam {
+            camera,
+            frame: RgbImage::new(DEFAULT_CAMERA_WIDTH as u32, DEFAULT_CAMERA_HEIGHT as u32),
+        })
     }
 
-    pub fn next_frame(&mut self) -> Result<RgbImage> {
-        // get a frame
-        let frame = match self.camera.frame() {
-            Ok(f) => f,
-            Err(e) => {
-                return Err(anyhow!("Sum fucked up with getting a frame: {e}"));
-            }
-        };
+    pub fn next_frame(&mut self) -> Result<&mut RgbImage> {
+        self.camera
+            .write_frame_to_buffer::<RgbFormat>(self.frame.as_mut())
+            .context("Sum fucked up with getting a frame")?;
 
-        // decode into an ImageBuffer
-        let decoded = match frame.decode_image::<RgbFormat>() {
-            Ok(b) => b,
-            Err(e) => {
-                return Err(anyhow!("Sum fucked up with decoding buffer: {e}"));
-            }
-        };
-
-        Ok(decoded)
+        Ok(&mut self.frame)
     }
 }
