@@ -1,7 +1,7 @@
 mod window;
 
-mod windows_manager;
-use windows_manager::*;
+mod windows_orchestrator;
+use windows_orchestrator::*;
 
 mod camera;
 use camera::*;
@@ -23,7 +23,7 @@ fn main() {
         }
     };
 
-    let mut wins_man = match WindowsOrchestrator::new(cam) {
+    let mut wins_orc = match WindowsOrchestrator::new(cam) {
         Ok(w) => w,
         Err(e) => {
             eprintln!("Windows oopsie: {e}");
@@ -33,10 +33,10 @@ fn main() {
 
     let mut frames_processed: u64 = 0;
     let mut frame_times = std::time::Duration::new(0, 0);
-    while wins_man.is_alive() {
+    while wins_orc.is_alive() {
         let start = std::time::Instant::now();
 
-        wins_man.step_wins();
+        wins_orc.step_wins();
 
         frames_processed += 1;
         frame_times += start.elapsed();
@@ -45,7 +45,7 @@ fn main() {
                 "\rFrame {}: {:.3}ms / frame ({} wins)",
                 frames_processed,
                 (frame_times.as_secs_f64() / FRAME_SAMPLING_WINDOW as f64) * 1000.0,
-                wins_man.num_open()
+                wins_orc.num_open()
             );
             frame_times = std::time::Duration::new(0, 0);
         }
