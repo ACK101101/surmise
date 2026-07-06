@@ -1,3 +1,4 @@
+mod camera;
 pub mod config;
 pub mod geometry;
 pub mod transform;

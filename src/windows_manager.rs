@@ -1,18 +1,19 @@
+use crate::camera::Cam;
 use crate::window::{Win, WinStepOutcome};
-
-use image::RgbImage;
 
 use anyhow::{Context, Result, bail};
 
-pub struct WindowsManager {
+pub struct WindowsOrchestrator {
+    cam: Cam,
     wins: Vec<Win>,
     num_spawned: usize,
 }
 
-impl WindowsManager {
-    pub fn new() -> Result<WindowsManager> {
+impl WindowsOrchestrator {
+    pub fn new(cam: Cam) -> Result<WindowsOrchestrator> {
         let win = Win::new(0).context("Win oopsie")?;
-        Ok(WindowsManager {
+        Ok(WindowsOrchestrator {
+            cam,
             wins: vec![win],
             num_spawned: 1,
         })
@@ -22,12 +23,14 @@ impl WindowsManager {
         !self.wins.is_empty()
     }
 
-    pub fn step_wins(&mut self, next_frame_buf: &RgbImage) {
+    pub fn step_wins(&mut self) {
+        self.cam.load_next_frame().unwrap(); // TODO: temp, put in separate read thread
+
         let mut to_shutter_idxs: Vec<usize> = Vec::new();
         let mut win_to_open = 0;
 
         for (idx, win) in self.wins.iter_mut().enumerate() {
-            match win.step(next_frame_buf) {
+            match win.step(&self.cam.get_frame()) {
                 WinStepOutcome::Shutter => to_shutter_idxs.push(idx),
                 WinStepOutcome::Open => win_to_open += 1,
                 _ => {}

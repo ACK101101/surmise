@@ -1,12 +1,16 @@
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Result};
+use arc_swap::ArcSwap;
 use image::RgbImage;
 use nokhwa::{Camera, pixel_format::RgbFormat, utils::*};
+use std::sync::Arc;
 
 use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
+use crate::transform::reflect_y;
 
 pub struct Cam {
     camera: Camera,
-    frame: RgbImage,
+    scratch: RgbImage,
+    frame: ArcSwap<RgbImage>,
 }
 
 impl Cam {
@@ -23,15 +27,27 @@ impl Cam {
 
         Ok(Cam {
             camera,
-            frame: RgbImage::new(DEFAULT_CAMERA_WIDTH as u32, DEFAULT_CAMERA_HEIGHT as u32),
+            scratch: RgbImage::new(DEFAULT_CAMERA_WIDTH as u32, DEFAULT_CAMERA_HEIGHT as u32),
+            frame: ArcSwap::from_pointee(RgbImage::new(
+                DEFAULT_CAMERA_WIDTH as u32,
+                DEFAULT_CAMERA_HEIGHT as u32,
+            )),
         })
     }
 
-    pub fn next_frame(&mut self) -> Result<&mut RgbImage> {
+    pub fn load_next_frame(&mut self) -> Result<()> {
         self.camera
-            .write_frame_to_buffer::<RgbFormat>(self.frame.as_mut())
+            .write_frame_to_buffer::<RgbFormat>(self.scratch.as_mut())
             .context("Sum fucked up with getting a frame")?;
 
-        Ok(&mut self.frame)
+        reflect_y(&mut self.scratch);
+
+        self.frame.store(Arc::new(self.scratch.clone()));
+
+        Ok(())
+    }
+
+    pub fn get_frame(&self) -> Arc<RgbImage> {
+        self.frame.load_full()
     }
 }

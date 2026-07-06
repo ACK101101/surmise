@@ -11,12 +11,11 @@ use crate::config::FRAME_SAMPLING_WINDOW;
 
 mod geometry;
 mod transform;
-use crate::transform::reflect_y;
 
 fn main() {
     env_logger::init();
 
-    let mut camera = match Cam::new() {
+    let cam = match Cam::new() {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Cam oopsie: {e}");
@@ -24,7 +23,7 @@ fn main() {
         }
     };
 
-    let mut wins_man = match WindowsManager::new() {
+    let mut wins_man = match WindowsOrchestrator::new(cam) {
         Ok(w) => w,
         Err(e) => {
             eprintln!("Windows oopsie: {e}");
@@ -35,20 +34,9 @@ fn main() {
     let mut frames_processed: u64 = 0;
     let mut frame_times = std::time::Duration::new(0, 0);
     while wins_man.is_alive() {
-        // TODO: careful with this mut in future
-        let mut next_frame = match camera.next_frame() {
-            Ok(b) => b,
-            Err(e) => {
-                eprintln!("Camera oopsie: {e}");
-                return;
-            }
-        };
-
         let start = std::time::Instant::now();
 
-        reflect_y(&mut next_frame);
-
-        wins_man.step_wins(&next_frame);
+        wins_man.step_wins();
 
         frames_processed += 1;
         frame_times += start.elapsed();
