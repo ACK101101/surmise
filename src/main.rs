@@ -3,8 +3,8 @@ mod window;
 mod windows_orchestrator;
 use windows_orchestrator::*;
 
-mod camera;
-use camera::*;
+mod frame_manager;
+use frame_manager::*;
 
 mod config;
 use crate::config::FRAME_SAMPLING_WINDOW;
@@ -15,7 +15,7 @@ mod transform;
 fn main() {
     env_logger::init();
 
-    let frame_man = match FrameManager::start() {
+    let frame_man = match FrameManager::spawn() {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Cam oopsie: {e}");

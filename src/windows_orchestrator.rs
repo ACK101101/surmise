@@ -1,4 +1,4 @@
-use crate::camera::FrameManager;
+use crate::frame_manager::FrameManager;
 use crate::window::{Win, WinStepOutcome};
 
 use anyhow::{Context, Result, bail};

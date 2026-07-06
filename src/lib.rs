@@ -1,4 +1,4 @@
-mod camera;
+mod frame_manager;
 pub mod config;
 pub mod geometry;
 pub mod transform;

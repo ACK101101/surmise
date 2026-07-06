@@ -13,7 +13,7 @@ pub struct FrameManager {
 }
 
 impl FrameManager {
-    pub fn start() -> Result<FrameManager> {
+    pub fn spawn() -> Result<FrameManager> {
         let frame = Arc::new(ArcSwap::from_pointee(RgbImage::new(
             DEFAULT_CAMERA_WIDTH as u32,
             DEFAULT_CAMERA_HEIGHT as u32,
