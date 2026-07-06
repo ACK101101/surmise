@@ -3,48 +3,48 @@ use arc_swap::ArcSwap;
 use image::RgbImage;
 use nokhwa::{Camera, pixel_format::RgbFormat, utils::*};
 use std::sync::Arc;
+use std::thread;
 
 use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
 use crate::transform::reflect_y;
 
-pub struct Cam {
-    camera: Camera,
-    scratch: RgbImage,
-    frame: ArcSwap<RgbImage>,
+pub struct FrameManager {
+    frame: Arc<ArcSwap<RgbImage>>,
 }
 
-impl Cam {
-    pub fn new() -> Result<Cam> {
-        let camera_index = CameraIndex::Index(0);
-        let requested_format =
-            RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
+impl FrameManager {
+    pub fn start() -> Result<FrameManager> {
+        let frame = Arc::new(ArcSwap::from_pointee(RgbImage::new(
+            DEFAULT_CAMERA_WIDTH as u32,
+            DEFAULT_CAMERA_HEIGHT as u32,
+        )));
+        let frame_for_thread = Arc::clone(&frame);
 
-        // my camera is 1920 x 1080, 30fps
-        let mut camera = Camera::new(camera_index, requested_format)?;
+        thread::spawn(move || -> Result<()> {
+            let camera_index = CameraIndex::Index(0);
+            let requested_format =
+                RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
 
-        // tries to open camera stream
-        camera.open_stream()?;
+            // my camera is 1920 x 1080, 30fps
+            let mut camera = Camera::new(camera_index, requested_format)?;
 
-        Ok(Cam {
-            camera,
-            scratch: RgbImage::new(DEFAULT_CAMERA_WIDTH as u32, DEFAULT_CAMERA_HEIGHT as u32),
-            frame: ArcSwap::from_pointee(RgbImage::new(
-                DEFAULT_CAMERA_WIDTH as u32,
-                DEFAULT_CAMERA_HEIGHT as u32,
-            )),
-        })
-    }
+            // tries to open camera stream
+            camera.open_stream()?;
 
-    pub fn load_next_frame(&mut self) -> Result<()> {
-        self.camera
-            .write_frame_to_buffer::<RgbFormat>(self.scratch.as_mut())
-            .context("Sum fucked up with getting a frame")?;
+            let mut scratch =
+                RgbImage::new(DEFAULT_CAMERA_WIDTH as u32, DEFAULT_CAMERA_HEIGHT as u32);
+            loop {
+                camera
+                    .write_frame_to_buffer::<RgbFormat>(scratch.as_mut())
+                    .context("Sum fucked up with getting a frame")?;
 
-        reflect_y(&mut self.scratch);
+                reflect_y(&mut scratch);
 
-        self.frame.store(Arc::new(self.scratch.clone()));
+                frame_for_thread.store(Arc::new(scratch.clone()));
+            }
+        });
 
-        Ok(())
+        Ok(FrameManager { frame })
     }
 
     pub fn get_frame(&self) -> Arc<RgbImage> {

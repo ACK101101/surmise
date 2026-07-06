@@ -15,7 +15,7 @@ mod transform;
 fn main() {
     env_logger::init();
 
-    let cam = match Cam::new() {
+    let frame_man = match FrameManager::start() {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Cam oopsie: {e}");
@@ -23,7 +23,7 @@ fn main() {
         }
     };
 
-    let mut wins_orc = match WindowsOrchestrator::new(cam) {
+    let mut wins_orc = match WindowsOrchestrator::new(frame_man) {
         Ok(w) => w,
         Err(e) => {
             eprintln!("Windows oopsie: {e}");
