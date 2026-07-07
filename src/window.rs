@@ -87,7 +87,7 @@ impl WindowState {
         log::debug!("Source Chunk Matrix: {source_chunk_matrix:?}");
         log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
 
-        let mut downsampled = downsample(
+        let downsampled = downsample(
             raw_buf,
             origin,
             self.win_size_snap,
@@ -97,8 +97,6 @@ impl WindowState {
             self.effect_mode,
             &mut self.memory,
         );
-
-        reflect_y(&mut downsampled);
 
         self.frame = rbg_image_to_u32(&downsampled);
 

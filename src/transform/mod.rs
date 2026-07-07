@@ -108,6 +108,9 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8>
 
     for x_i in top_left.x..top_left.x + chunk_width as i32 {
         for y_i in top_left.y..top_left.y + chunk_height as i32 {
+            // image comes flipped backwards from raw, reflect here
+            let x_i = w - 1 - x_i;
+
             // protect against grabbing pixels outside image for reveal mode
             if x_i < 0 || x_i >= w || y_i < 0 || y_i >= h {
                 continue;
