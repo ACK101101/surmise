@@ -3,7 +3,6 @@ use crate::config::{
     DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, SMA_WINDOW_SIZE,
 };
 use crate::geometry::{Point, Rect};
-use crate::transform::reflect_y;
 use crate::transform::{
     calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32,
 };
@@ -107,7 +106,7 @@ impl WindowState {
 // Per Window Handling
 pub struct Win {
     window: Window,
-    win_state: WindowState,
+    pub win_state: WindowState,
 }
 
 #[derive(Clone, Copy)]
@@ -182,7 +181,7 @@ impl Win {
         outcome
     }
 
-    fn determine_win_outcome(&self) -> WinStepOutcome {
+    pub fn determine_win_outcome(&self) -> WinStepOutcome {
         // determine if want to shutter or open window
         if !self.window.is_open()
             || self.window.is_key_down(Key::Escape)
@@ -198,7 +197,7 @@ impl Win {
         WinStepOutcome::Continue
     }
 
-    fn update_win_size_pos_snapshot(&mut self) {
+    pub fn update_win_size_pos_snapshot(&mut self) {
         let (win_w, win_h) = self.window.get_size();
         self.win_state.win_size_snap = Rect::new(win_w as u32, win_h as u32);
 
@@ -209,7 +208,7 @@ impl Win {
         };
     }
 
-    fn update_pixel_chunk(&mut self) -> bool {
+    pub fn update_pixel_chunk(&mut self) -> bool {
         let (curr_win_w, curr_win_h) = self.win_state.win_size_snap.get_dims();
         let (curr_pix_w, curr_pix_h) = self.win_state.pixel_chunk.get_dims();
         let (new_pix_w, new_pix_h): (u32, u32);
@@ -252,7 +251,7 @@ impl Win {
         true
     }
 
-    fn update_effect_mode(&mut self, updated_pixel_chunk: bool) {
+    pub fn update_effect_mode(&mut self, updated_pixel_chunk: bool) {
         let (win_w, win_h) = self.win_state.win_size_snap.get_dims();
         let (pix_w, pix_h) = self.win_state.pixel_chunk.get_dims();
 
