@@ -1,10 +1,11 @@
 pub mod lattice;
 
-use crate::window::EffectMode;
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
+use rayon::prelude::*;
 
 use crate::geometry::{Point, Rect};
+use crate::window::EffectMode;
 
 // TODO: maybe fold in window.rs for clarity
 pub fn calc_source_chunk_dims(
@@ -54,29 +55,39 @@ pub fn downsample(
     let (pixel_width, pixel_height) = pixel_dims.get_dims();
     let (pixel_matrix_width, pixel_matrix_height) = pixel_chunk_matrix.get_dims();
     let (source_width, source_height) = source_chunk_matrix.get_dims();
-    let mut new_image: RgbImage = RgbImage::new(window_width, window_height);
 
     let use_memory = matches!(mode, EffectMode::Sma)
         && memory.use_memory(pixel_matrix_width as usize, pixel_matrix_height as usize);
 
-    for row_i in 0..pixel_matrix_height {
-        for col_i in 0..pixel_matrix_width {
-            // get top left point of chunk of source image
+    // calculate new pixelchunk values in parallel
+    let averaged: Vec<Rgb<u8>> = (0..pixel_chunk_matrix.area())
+        .into_par_iter()
+        .map(|idx| {
+            let row_i = idx / pixel_matrix_width;
+            let col_i = idx % pixel_matrix_width;
             let top_left = Point {
                 x: origin.x + (col_i * source_width) as i32,
                 y: origin.y + (row_i * source_height) as i32,
             };
 
-            let mut new_pixel_value = average(&source, top_left, source_chunk_matrix);
+            average(&source, top_left, source_chunk_matrix)
+        })
+        .collect();
+
+    let mut new_image: RgbImage = RgbImage::new(window_width, window_height);
+
+    for row_i in 0..pixel_matrix_height {
+        for col_i in 0..pixel_matrix_width {
+            let mut new_v = averaged[(row_i * pixel_matrix_width + col_i) as usize];
 
             if use_memory {
-                new_pixel_value = memory.sma(new_pixel_value, row_i, col_i);
+                new_v = memory.sma(new_v, row_i, col_i);
             }
 
             // fill pixel chunk with new value
             for x_i in (col_i * pixel_width)..(col_i + 1) * pixel_width {
                 for y_i in (row_i * pixel_height)..(row_i + 1) * pixel_height {
-                    new_image.put_pixel(x_i, y_i, new_pixel_value);
+                    new_image.put_pixel(x_i, y_i, new_v);
                 }
             }
         }
@@ -119,12 +130,11 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8>
 }
 
 pub fn rbg_image_to_u32(image: &RgbImage) -> Vec<u32> {
-    let mut vector: Vec<u32> = Vec::new();
-    for (_, _, pixel) in image.enumerate_pixels() {
-        vector.push(rgb_to_u32(pixel.0[0], pixel.0[1], pixel.0[2]));
-    }
-
-    vector
+    image
+        .as_raw()
+        .par_chunks_exact(3)
+        .map(|c| rgb_to_u32(c[0], c[1], c[2]))
+        .collect()
 }
 
 fn rgb_to_u32(r: u8, g: u8, b: u8) -> u32 {

@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::thread;
 
 use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
-use crate::transform::reflect_y;
 
 pub struct FrameManager {
     frame: Arc<ArcSwap<RgbImage>>,
@@ -37,8 +36,6 @@ impl FrameManager {
                 camera
                     .write_frame_to_buffer::<RgbFormat>(scratch.as_mut())
                     .context("Sum fucked up with getting a frame")?;
-
-                reflect_y(&mut scratch);
 
                 frame_for_thread.store(Arc::new(scratch.clone()));
             }

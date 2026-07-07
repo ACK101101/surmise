@@ -3,6 +3,7 @@ use crate::config::{
     DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, SMA_WINDOW_SIZE,
 };
 use crate::geometry::{Point, Rect};
+use crate::transform::reflect_y;
 use crate::transform::{
     calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32,
 };
@@ -86,7 +87,7 @@ impl WindowState {
         log::debug!("Source Chunk Matrix: {source_chunk_matrix:?}");
         log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
 
-        let downsampled = downsample(
+        let mut downsampled = downsample(
             raw_buf,
             origin,
             self.win_size_snap,
@@ -96,6 +97,8 @@ impl WindowState {
             self.effect_mode,
             &mut self.memory,
         );
+
+        reflect_y(&mut downsampled);
 
         self.frame = rbg_image_to_u32(&downsampled);
 
@@ -135,6 +138,7 @@ impl Win {
             DEFAULT_WINDOW_HEIGHT,
             WindowOptions {
                 resize: true,
+                topmost: true,
                 ..WindowOptions::default()
             },
         )?;

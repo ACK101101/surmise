@@ -51,9 +51,9 @@ fn downsample_bench(c: &mut Criterion) {
 }
 
 fn rgb_image_to_u32_bench(c: &mut Criterion) {
-    let mut image = RgbImage::new(1920, 1080);
+    let image = RgbImage::new(1920, 1080);
     c.bench_function("rbg_image_to_u32 1920x1080", |b| {
-        b.iter(|| rbg_image_to_u32(&mut image))
+        b.iter(|| rbg_image_to_u32(&image))
     });
 }
 
