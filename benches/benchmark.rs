@@ -7,7 +7,7 @@ use surmise::geometry::{Point, Rect};
 use surmise::transform::average;
 use surmise::transform::lattice::PixelLattice;
 use surmise::transform::{downsample, rbg_image_to_u32, reflect_y};
-use surmise::window::{EffectMode, WindowState};
+use surmise::window::{EffectMode, WinState};
 
 fn average_bench(c: &mut Criterion) {
     let image = RgbImage::new(1920, 1080);
@@ -71,13 +71,7 @@ fn calculate_frame_bench(c: &mut Criterion) {
 
     for mode in modes {
         group.bench_function(format!("{mode}"), |b| {
-            let mut win_state = WindowState::new(
-                Rect::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32),
-                Point { x: 0, y: 0 },
-                Rect::new(30, 33),
-                PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE),
-                mode,
-            );
+            let mut win_state = WinState::new(mode);
 
             b.iter(|| win_state.calculate_and_save_frame(&image));
         });
