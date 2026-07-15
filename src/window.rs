@@ -1,7 +1,4 @@
-use crate::config::{
-    DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH, DEFAULT_PIXEL_HEIGHT, DEFAULT_PIXEL_WIDTH,
-    DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, SMA_WINDOW_SIZE,
-};
+use crate::config::*;
 use crate::geometry::{Point, Rect};
 use crate::transform::{
     calc_source_chunk_dims, downsample, lattice::PixelLattice, rbg_image_to_u32,
@@ -113,7 +110,7 @@ pub fn new_win(idx: usize) -> Result<Window> {
         DEFAULT_WINDOW_HEIGHT
     );
 
-    let window = Window::new(
+    let mut window = Window::new(
         &name,
         DEFAULT_WINDOW_WIDTH,
         DEFAULT_WINDOW_HEIGHT,
@@ -123,6 +120,9 @@ pub fn new_win(idx: usize) -> Result<Window> {
             ..WindowOptions::default()
         },
     )?;
+
+    window.set_target_fps(DEFAULT_WINDOW_FRAME_RATE); // I think without throttling, we are more likely to flicker due to minifb UAF issues
+
     Ok(window)
 }
 
