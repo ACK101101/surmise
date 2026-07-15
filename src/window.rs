@@ -40,6 +40,7 @@ impl EffectMode {
 // Window State Handling
 pub struct WinState {
     frame: Vec<u32>,
+    scratch: Vec<u32>,
     win_size_snap: Rect,
     win_pos_snap: Point,
     pixel_chunk: Rect,
@@ -51,6 +52,7 @@ impl WinState {
     pub fn new(mode: EffectMode) -> WinState {
         WinState {
             frame: vec![0u32; DEFAULT_CAMERA_WIDTH * DEFAULT_CAMERA_HEIGHT],
+            scratch: vec![0u32; DEFAULT_CAMERA_WIDTH * DEFAULT_CAMERA_HEIGHT],
             win_size_snap: Rect::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32),
             win_pos_snap: Point { x: 0, y: 0 },
             pixel_chunk: Rect::new(DEFAULT_PIXEL_WIDTH as u32, DEFAULT_PIXEL_HEIGHT as u32),
@@ -88,7 +90,8 @@ impl WinState {
             &mut self.memory,
         );
 
-        rbg_image_to_u32(&downsampled, &mut self.frame);
+        rbg_image_to_u32(&downsampled, &mut self.scratch);
+        std::mem::swap(&mut self.frame, &mut self.scratch);
 
         Ok(())
     }
