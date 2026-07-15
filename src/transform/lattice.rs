@@ -6,16 +6,16 @@ use image::Rgb;
 
 pub struct PixelLattice {
     pixel_slices: Vec<Vec<Rgb<u8>>>,
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
     length: usize,
     write_idx: usize,
 }
 
 impl PixelLattice {
-    pub fn new(width: usize, height: usize, length: usize) -> Self {
+    pub fn new(width: u32, height: u32, length: usize) -> Self {
         Self {
-            pixel_slices: vec![vec![Rgb([0, 0, 0]); width * height]; length],
+            pixel_slices: vec![vec![Rgb([0, 0, 0]); (width * height) as usize]; length],
             width,
             height,
             length,
@@ -23,12 +23,12 @@ impl PixelLattice {
         }
     }
 
-    pub fn use_memory(&self, width: usize, height: usize) -> bool {
+    pub fn use_memory(&self, width: u32, height: u32) -> bool {
         width == self.width && height == self.height
     }
 
     pub fn sma(&mut self, new_p: Rgb<u8>, chunk_r: u32, chunk_c: u32) -> Rgb<u8> {
-        let p_idx = chunk_r as usize * self.width + chunk_c as usize;
+        let p_idx = (chunk_r * self.width + chunk_c) as usize;
         self.pixel_slices[self.write_idx][p_idx] = new_p;
 
         let mut sum_new = Rgb::<usize>([0, 0, 0]);

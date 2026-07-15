@@ -41,73 +41,13 @@ pub fn calc_source_chunk_dims(
     Ok((pixel_chunk_matrix, source_chunk_matrix, origin))
 }
 
-pub fn downsample(
-    source: &RgbImage,
-    origin: Point,
-    window_dims: Rect,
-    pixel_dims: Rect,
-    pixel_chunk_matrix: Rect,
-    source_chunk_matrix: Rect,
-    mode: EffectMode,
-    memory: &mut lattice::PixelLattice,
-) -> RgbImage {
-    let (window_width, window_height) = window_dims.get_dims();
-    let (pixel_width, pixel_height) = pixel_dims.get_dims();
-    let (pixel_matrix_width, pixel_matrix_height) = pixel_chunk_matrix.get_dims();
-    let (source_width, source_height) = source_chunk_matrix.get_dims();
-
-    let use_memory = matches!(mode, EffectMode::Sma)
-        && memory.use_memory(pixel_matrix_width as usize, pixel_matrix_height as usize);
-
-    // calculate new pixelchunk values in parallel
-    let averaged: Vec<Rgb<u8>> = (0..pixel_chunk_matrix.area())
-        .into_par_iter()
-        .map(|idx| {
-            let row_i = idx / pixel_matrix_width;
-            let col_i = idx % pixel_matrix_width;
-            let top_left = Point {
-                x: origin.x + (col_i * source_width) as i32,
-                y: origin.y + (row_i * source_height) as i32,
-            };
-
-            average(&source, top_left, source_chunk_matrix)
-        })
-        .collect();
-
-    let mut new_image: RgbImage = RgbImage::new(window_width, window_height);
-
-    for row_i in 0..pixel_matrix_height {
-        for col_i in 0..pixel_matrix_width {
-            let mut new_v = averaged[(row_i * pixel_matrix_width + col_i) as usize];
-
-            if use_memory {
-                new_v = memory.sma(new_v, row_i, col_i);
-            }
-
-            // fill pixel chunk with new value
-            for x_i in (col_i * pixel_width)..(col_i + 1) * pixel_width {
-                for y_i in (row_i * pixel_height)..(row_i + 1) * pixel_height {
-                    new_image.put_pixel(x_i, y_i, new_v);
-                }
-            }
-        }
-    }
-
-    if use_memory {
-        memory.bump_write_idx();
-    }
-
-    new_image
-}
-
 pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8> {
     let (w, h) = image.dimensions();
     let (w, h) = (w as i32, h as i32);
     let (mut r, mut g, mut b) = (0u32, 0u32, 0u32);
-    let (chunk_width, chunk_height) = chunk_matrix.get_dims();
 
-    for x_i in top_left.x..top_left.x + chunk_width as i32 {
-        for y_i in top_left.y..top_left.y + chunk_height as i32 {
+    for x_i in top_left.x..top_left.x + chunk_matrix.get_width() as i32 {
+        for y_i in top_left.y..top_left.y + chunk_matrix.get_height() as i32 {
             // image comes flipped backwards from raw, reflect here
             let x_i = w - 1 - x_i;
 
@@ -142,33 +82,4 @@ pub fn rbg_image_to_u32(image: &RgbImage, v: &mut Vec<u32>) {
 
 fn rgb_to_u32(r: u8, g: u8, b: u8) -> u32 {
     ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
-}
-
-fn add_rgb(p0: Rgb<u8>, p1: Rgb<u8>) -> Rgb<u8> {
-    Rgb([
-        p0.0[0].saturating_add(p1.0[0]),
-        p0.0[1].saturating_add(p1.0[1]),
-        p0.0[2].saturating_add(p1.0[2]),
-    ])
-}
-
-fn scale_rbg(pix: Rgb<u8>, numerator: usize, denominator: usize) -> Rgb<u8> {
-    Rgb([
-        (((pix.0[0] as usize).saturating_mul(numerator)).saturating_div(denominator)) as u8,
-        (((pix.0[1] as usize).saturating_mul(numerator)).saturating_div(denominator)) as u8,
-        (((pix.0[2] as usize).saturating_mul(numerator)).saturating_div(denominator)) as u8,
-    ])
-}
-
-pub fn reflect_y(image: &mut RgbImage) {
-    let w = image.width() as usize;
-    let row_len = w * 3; // raw pixel is stored as 3 u8's
-    for row in image.chunks_exact_mut(row_len) {
-        for i in 0..w / 2 {
-            let (p_i_start, p_j_start) = (i * 3, (w - 1 - i) * 3);
-            row.swap(p_i_start, p_j_start);
-            row.swap(p_i_start + 1, p_j_start + 1);
-            row.swap(p_i_start + 2, p_j_start + 2);
-        }
-    }
 }

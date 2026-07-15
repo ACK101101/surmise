@@ -34,13 +34,13 @@ fn main() {
     let mut frames_processed: u64 = 0;
     let start = std::time::Instant::now();
     let mut last_frame_elapsed = std::time::Duration::new(0, 0);
-    
+
     while wins_orc.is_alive() {
 
         wins_orc.step_wins();
 
         frames_processed += 1;
-        if frames_processed % FRAME_SAMPLING_WINDOW == 0 {
+        if frames_processed.is_multiple_of(FRAME_SAMPLING_WINDOW) {
             let time_since_start = start.elapsed();
             eprintln!(
                 "Frame {}: {:.3} ms/frame \t{:.1} fps \t({} wins)",
@@ -52,6 +52,4 @@ fn main() {
             last_frame_elapsed = time_since_start;
         }
     }
-
-    eprintln!("")
 }

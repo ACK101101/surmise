@@ -22,8 +22,8 @@ impl WindowsOrchestrator {
         let win_state = WinState::new(EffectMode::Default);
 
         let frame = Arc::new(RgbImage::new(
-            DEFAULT_CAMERA_WIDTH as u32,
-            DEFAULT_CAMERA_HEIGHT as u32,
+            DEFAULT_CAMERA_WIDTH,
+            DEFAULT_CAMERA_HEIGHT,
         ));
 
         Ok(WindowsOrchestrator {
@@ -69,7 +69,7 @@ impl WindowsOrchestrator {
             .zip(self.win_states.iter_mut())
             .enumerate()
         {
-            match determine_win_outcome(&win) {
+            match determine_win_outcome(win) {
                 WinStepOutcome::Shutter => {
                     to_shutter_idxs.push(idx);
                     continue;

@@ -14,8 +14,8 @@ pub struct FrameManager {
 impl FrameManager {
     pub fn spawn() -> Result<FrameManager> {
         let frame = Arc::new(ArcSwap::from_pointee(RgbImage::new(
-            DEFAULT_CAMERA_WIDTH as u32,
-            DEFAULT_CAMERA_HEIGHT as u32,
+            DEFAULT_CAMERA_WIDTH,
+            DEFAULT_CAMERA_HEIGHT,
         )));
         let frame_for_thread = Arc::clone(&frame);
 
@@ -31,7 +31,7 @@ impl FrameManager {
             camera.open_stream()?;
 
             let mut scratch =
-                RgbImage::new(DEFAULT_CAMERA_WIDTH as u32, DEFAULT_CAMERA_HEIGHT as u32);
+                RgbImage::new(DEFAULT_CAMERA_WIDTH, DEFAULT_CAMERA_HEIGHT );
             loop {
                 camera
                     .write_frame_to_buffer::<RgbFormat>(scratch.as_mut())

@@ -1,6 +1,5 @@
 # TODOs
 
-[ ] Find better get_dims() workaround, lots of pollution
 [ ] Cleanup u32 vs usize
 
 [ ] Add chunky pixel normalization
