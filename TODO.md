@@ -1,8 +1,5 @@
 # TODOs
 
-[ ] Refactor window for parallel computation
-[ ] Make sure no unnecessary frame copies
-[ ] Refactor window.rs, read key input then pass, cleaner separation
 [ ] Find better get_dims() workaround, lots of pollution
 [ ] Cleanup u32 vs usize
 
