@@ -91,7 +91,7 @@ impl WinState {
             &mut self.memory,
         );
 
-        self.frame = rbg_image_to_u32(&downsampled);
+        rbg_image_to_u32(&downsampled, &mut self.frame);
 
         Ok(())
     }

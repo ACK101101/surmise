@@ -132,12 +132,12 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8>
     ])
 }
 
-pub fn rbg_image_to_u32(image: &RgbImage) -> Vec<u32> {
+pub fn rbg_image_to_u32(image: &RgbImage, v: &mut Vec<u32>) {
     image
         .as_raw()
         .par_chunks_exact(3)
         .map(|c| rgb_to_u32(c[0], c[1], c[2]))
-        .collect()
+        .collect_into_vec(v);
 }
 
 fn rgb_to_u32(r: u8, g: u8, b: u8) -> u32 {

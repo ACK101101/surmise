@@ -1,11 +1,15 @@
+use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
 use crate::frame_manager::FrameManager;
 use crate::window::*;
 
 use anyhow::{Context, Result, bail};
+use image::RgbImage;
 use minifb::*;
-use rayon::{prelude::*};
+use rayon::prelude::*;
+use std::sync::Arc;
 
 pub struct WindowsOrchestrator {
+    frame: Arc<RgbImage>,
     frame_man: FrameManager,
     mfb_wins: Vec<Window>,
     win_states: Vec<WinState>,
@@ -16,7 +20,14 @@ impl WindowsOrchestrator {
     pub fn new(frame_man: FrameManager) -> Result<WindowsOrchestrator> {
         let win = new_win(0).context("Win oopsie")?;
         let win_state = WinState::new(EffectMode::Default);
+
+        let frame = Arc::new(RgbImage::new(
+            DEFAULT_CAMERA_WIDTH as u32,
+            DEFAULT_CAMERA_HEIGHT as u32,
+        ));
+
         Ok(WindowsOrchestrator {
+            frame,
             frame_man,
             mfb_wins: vec![win],
             win_states: vec![win_state],
@@ -77,10 +88,10 @@ impl WindowsOrchestrator {
     }
 
     fn calculate_frames(&mut self) {
-        let frame = self.frame_man.get_frame();
+        self.frame = self.frame_man.get_frame();
 
         self.win_states.par_iter_mut().for_each(|win_state| {
-            if let Err(e) = win_state.calculate_and_save_frame(&frame) {
+            if let Err(e) = win_state.calculate_and_save_frame(&self.frame) {
                 eprintln!("Calc frame oopsie: {e}");
             }
         });
