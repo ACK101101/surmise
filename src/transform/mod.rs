@@ -7,6 +7,27 @@ use rayon::prelude::*;
 use crate::geometry::{Point, Rect};
 use crate::window::EffectMode;
 
+// Transform Mapping Modes
+#[derive(Copy, Clone)]
+pub enum TransformMode {
+    Default, // chunky pixel
+    Monochrome,
+    Single,
+    Multiple,
+    Dots,
+}
+
+impl TransformMode {
+    fn toggle(&mut self) {
+        *self = match self {
+            TransformMode::Default => TransformMode::Monochrome,
+            TransformMode::Monochrome => TransformMode::Dots,
+            TransformMode::Dots => TransformMode::Default,
+            _ => TransformMode::Default, // TODO: placeholder
+        };
+    }
+}
+
 // TODO: maybe fold in window.rs for clarity
 pub fn calc_source_chunk_dims(
     source_dims: Rect,

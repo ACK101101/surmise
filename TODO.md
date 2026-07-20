@@ -1,7 +1,6 @@
 # TODOs
 
-[ ] Cleanup u32 vs usize
-
+[ ] Frame gets stretched on window resize
 [ ] Add chunky pixel normalization
 [ ] Add mapping to arbitrary collection of images
   - Add cyanotype mode

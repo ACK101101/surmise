@@ -11,6 +11,10 @@ image = "0.25.10"
 log = "0.4.29"
 minifb = "0.28.0"
 rayon = "1.12.0"
+nokhwa = { version = "0.10.10", features = ["input-native"] }
+
+[patch.crates-io]
+minifb = { path = "/Users/alexanderkumar/Code/rust_minifb" }
 
 [[bench]]
 name = "benchmark"
@@ -18,7 +22,3 @@ harness = false
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
-
-[dependencies.nokhwa]
-version = "0.10.10"
-features = ["input-native"]

@@ -1,6 +1,5 @@
 pub const DEFAULT_WINDOW_WIDTH: u32 = 960;
 pub const DEFAULT_WINDOW_HEIGHT: u32 = 540;
-pub const DEFAULT_WINDOW_FRAME_RATE: usize = 120;
 
 pub const DEFAULT_PIXEL_WIDTH: u32 = 32;
 pub const DEFAULT_PIXEL_HEIGHT: u32 = 16;

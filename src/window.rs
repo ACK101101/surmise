@@ -1,19 +1,19 @@
 use crate::config::*;
 use crate::geometry::{Point, Rect};
 use crate::transform::{
-    calc_source_chunk_dims, average, lattice::PixelLattice, rbg_image_to_u32,
+    TransformMode, average, calc_source_chunk_dims, lattice::PixelLattice, rbg_image_to_u32,
 };
 
-use rayon::prelude::*;
-use image::{Rgb, RgbImage};
 use anyhow::Result;
+use image::{Rgb, RgbImage};
 use minifb::*;
+use rayon::prelude::*;
 use std::fmt;
 
 // Window Effect Modes
 #[derive(Copy, Clone)]
 pub enum EffectMode {
-    Default,
+    Default, // average
     Reveal,
     Sma,
 }
@@ -47,6 +47,7 @@ pub struct WinState {
     pixel_chunk: Rect,
     memory: PixelLattice,
     effect_mode: EffectMode,
+    transform_mode: TransformMode,
 }
 
 impl WinState {
@@ -59,6 +60,7 @@ impl WinState {
             pixel_chunk: Rect::new(DEFAULT_PIXEL_WIDTH, DEFAULT_PIXEL_HEIGHT),
             memory: PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE),
             effect_mode: mode,
+            transform_mode: TransformMode::Default,
         }
     }
 
@@ -80,12 +82,7 @@ impl WinState {
         log::debug!("Source Chunk Matrix: {source_chunk_matrix:?}");
         log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
 
-        let downsampled = self.downsample(
-            raw_buf,
-            origin,
-            pixel_chunk_matrix,
-            source_chunk_matrix,
-        );
+        let downsampled = self.downsample(raw_buf, origin, pixel_chunk_matrix, source_chunk_matrix);
 
         rbg_image_to_u32(&downsampled, &mut self.scratch);
         std::mem::swap(&mut self.frame, &mut self.scratch);
@@ -102,7 +99,9 @@ impl WinState {
     ) -> RgbImage {
         let (pixel_matrix_width, pixel_matrix_height) = pixel_chunk_matrix.get_dims();
         let use_memory = matches!(self.effect_mode, EffectMode::Sma)
-            && self.memory.use_memory(pixel_matrix_width, pixel_matrix_height);
+            && self
+                .memory
+                .use_memory(pixel_matrix_width, pixel_matrix_height);
 
         // calculate new pixelchunk values in parallel
         let averaged: Vec<Rgb<u8>> = (0..pixel_chunk_matrix.area())
@@ -119,7 +118,10 @@ impl WinState {
             })
             .collect();
 
-        let mut new_image: RgbImage = RgbImage::new(self.win_size_snap.get_width(), self.win_size_snap.get_height());
+        let mut new_image: RgbImage = RgbImage::new(
+            self.win_size_snap.get_width(),
+            self.win_size_snap.get_height(),
+        );
         let (pixel_width, pixel_height) = self.pixel_chunk.get_dims();
 
         for row_i in 0..pixel_matrix_height {
@@ -163,7 +165,7 @@ pub fn new_win(idx: usize) -> Result<Window> {
         DEFAULT_WINDOW_HEIGHT
     );
 
-    let mut window = Window::new(
+    let window = Window::new(
         &name,
         DEFAULT_WINDOW_WIDTH as usize,
         DEFAULT_WINDOW_HEIGHT as usize,
@@ -173,8 +175,6 @@ pub fn new_win(idx: usize) -> Result<Window> {
             ..WindowOptions::default()
         },
     )?;
-
-    window.set_target_fps(DEFAULT_WINDOW_FRAME_RATE); // I think without throttling, we are more likely to flicker due to minifb UAF issues
 
     Ok(window)
 }
