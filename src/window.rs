@@ -2,6 +2,7 @@ use crate::config::*;
 use crate::geometry::{Point, Rect};
 use crate::transform::{
     TransformMode, average, calc_source_chunk_dims, lattice::PixelLattice, rbg_image_to_u32,
+    scale_rbg,
 };
 
 use anyhow::Result;
@@ -161,15 +162,17 @@ impl WinState {
         let (pixel_width, pixel_height) = self.pixel_chunk.get_dims();
         let center_x = pixel_width / 2 + col_i * pixel_width;
         let center_y = pixel_height / 2 + row_i * pixel_height;
-        let radius_sq = (min(pixel_width, pixel_height) / 2).pow(2);
+        let radius = (min(pixel_width, pixel_height) / 2) as f32;
 
         for x_i in (col_i * pixel_width)..(col_i + 1) * pixel_width {
             for y_i in (row_i * pixel_height)..(row_i + 1) * pixel_height {
-                let dx_sq = x_i.abs_diff(center_x).pow(2);
-                let dy_sq = y_i.abs_diff(center_y).pow(2);
-                if dx_sq + dy_sq <= radius_sq {
-                    new_image.put_pixel(x_i, y_i, new_v);
-                }
+                let dx_sq = x_i.abs_diff(center_x).pow(2) as f32;
+                let dy_sq = y_i.abs_diff(center_y).pow(2) as f32;
+                let dist = (dx_sq + dy_sq).sqrt();
+
+                // if pixel is on geometric border, render at 0.5 alpha for anti-aliasing
+                let coverage = ((radius - dist) + 0.5).clamp(0.0, 1.0);
+                new_image.put_pixel(x_i, y_i, scale_rbg(new_v, coverage));
             }
         }
     }

@@ -127,3 +127,11 @@ fn rgb_to_u32(r: u8, g: u8, b: u8, transform_mode: TransformMode) -> u32 {
         _ => ((r as u32) << 16) | ((g as u32) << 8) | (b as u32),
     }
 }
+
+pub fn scale_rbg(pix: Rgb<u8>, m: f32) -> Rgb<u8> {
+    Rgb([
+        ((pix.0[0] as f32) * m) as u8,
+        ((pix.0[1] as f32) * m) as u8,
+        ((pix.0[2] as f32) * m) as u8,
+    ])
+}
