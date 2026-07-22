@@ -1,5 +1,6 @@
 pub mod lattice;
 
+use std::fmt;
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
 use rayon::prelude::*;
@@ -11,20 +12,37 @@ use crate::window::EffectMode;
 #[derive(Copy, Clone)]
 pub enum TransformMode {
     Default, // chunky pixel
-    Monochrome,
+    Red,
+    Green,
+    Blue,
     Single,
     Multiple,
     Dots,
 }
 
 impl TransformMode {
-    fn toggle(&mut self) {
+    pub fn toggle(&mut self) {
         *self = match self {
-            TransformMode::Default => TransformMode::Monochrome,
-            TransformMode::Monochrome => TransformMode::Dots,
+            TransformMode::Default => TransformMode::Red,
+            TransformMode::Red => TransformMode::Green,
+            TransformMode::Green => TransformMode::Blue,
+            TransformMode::Blue => TransformMode::Dots,
             TransformMode::Dots => TransformMode::Default,
             _ => TransformMode::Default, // TODO: placeholder
         };
+    }
+}
+
+impl fmt::Display for TransformMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TransformMode::Default => write!(f, "Chunky"),
+            TransformMode::Red => write!(f, "Red"),
+            TransformMode::Green => write!(f, "Green"),
+            TransformMode::Blue => write!(f, "Blue"),
+            TransformMode::Dots => write!(f, "Dots"),
+            _ => write!(f, "Unimplemented"),
+        }
     }
 }
 
@@ -93,14 +111,19 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8>
     ])
 }
 
-pub fn rbg_image_to_u32(image: &RgbImage, v: &mut Vec<u32>) {
+pub fn rbg_image_to_u32(image: &RgbImage, v: &mut Vec<u32>, transform_mode: TransformMode) {
     image
         .as_raw()
         .par_chunks_exact(3)
-        .map(|c| rgb_to_u32(c[0], c[1], c[2]))
+        .map(|c| rgb_to_u32(c[0], c[1], c[2], transform_mode))
         .collect_into_vec(v);
 }
 
-fn rgb_to_u32(r: u8, g: u8, b: u8) -> u32 {
-    ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+fn rgb_to_u32(r: u8, g: u8, b: u8, transform_mode: TransformMode) -> u32 {
+    match transform_mode {
+        TransformMode::Red => ((r as u32) << 16) | ((0 as u32) << 8) | (0 as u32),
+        TransformMode::Green => ((0 as u32) << 16) | ((g as u32) << 8) | (0 as u32),
+        TransformMode::Blue => ((0 as u32) << 16) | ((0 as u32) << 8) | (b as u32),
+        _ => ((r as u32) << 16) | ((g as u32) << 8) | (b as u32),
+    }
 }

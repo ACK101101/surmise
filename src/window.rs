@@ -4,6 +4,7 @@ use crate::transform::{
     TransformMode, average, calc_source_chunk_dims, lattice::PixelLattice, rbg_image_to_u32,
 };
 
+use std::cmp::min;
 use anyhow::Result;
 use image::{Rgb, RgbImage};
 use minifb::*;
@@ -84,7 +85,7 @@ impl WinState {
 
         let downsampled = self.downsample(raw_buf, origin, pixel_chunk_matrix, source_chunk_matrix);
 
-        rbg_image_to_u32(&downsampled, &mut self.scratch);
+        rbg_image_to_u32(&downsampled, &mut self.scratch, self.transform_mode);
         std::mem::swap(&mut self.frame, &mut self.scratch);
 
         Ok(())
@@ -122,7 +123,6 @@ impl WinState {
             self.win_size_snap.get_width(),
             self.win_size_snap.get_height(),
         );
-        let (pixel_width, pixel_height) = self.pixel_chunk.get_dims();
 
         for row_i in 0..pixel_matrix_height {
             for col_i in 0..pixel_matrix_width {
@@ -132,12 +132,11 @@ impl WinState {
                     new_v = self.memory.sma(new_v, row_i, col_i);
                 }
 
-                // fill pixel chunk with new value
-                for x_i in (col_i * pixel_width)..(col_i + 1) * pixel_width {
-                    for y_i in (row_i * pixel_height)..(row_i + 1) * pixel_height {
-                        new_image.put_pixel(x_i, y_i, new_v);
-                    }
-                }
+                // fill patch
+                match self.transform_mode {
+                    TransformMode::Dots => self.fill_circle(&mut new_image, new_v, col_i, row_i),
+                    _ => self.fill_rect(&mut new_image, new_v, col_i, row_i),
+                };
             }
         }
 
@@ -146,6 +145,33 @@ impl WinState {
         }
 
         new_image
+    }
+
+    fn fill_rect(&self, new_image: &mut RgbImage, new_v: Rgb<u8>, col_i: u32, row_i: u32) {
+        let (pixel_width, pixel_height) = self.pixel_chunk.get_dims();
+
+        for x_i in (col_i * pixel_width)..(col_i + 1) * pixel_width {
+            for y_i in (row_i * pixel_height)..(row_i + 1) * pixel_height {
+                new_image.put_pixel(x_i, y_i, new_v);
+            }
+        }
+    }
+
+    fn fill_circle(&self, new_image: &mut RgbImage, new_v: Rgb<u8>, col_i: u32, row_i: u32) {
+        let (pixel_width, pixel_height) = self.pixel_chunk.get_dims();
+        let center_x = pixel_width / 2 + col_i * pixel_width;
+        let center_y = pixel_height / 2 + row_i * pixel_height;
+        let radius_sq = (min(pixel_width, pixel_height) / 2).pow(2);
+
+        for x_i in (col_i * pixel_width)..(col_i + 1) * pixel_width {
+            for y_i in (row_i * pixel_height)..(row_i + 1) * pixel_height {
+                let dx_sq = x_i.abs_diff(center_x).pow(2);
+                let dy_sq = y_i.abs_diff(center_y).pow(2);
+                if dx_sq + dy_sq <= radius_sq {
+                    new_image.put_pixel(x_i, y_i, new_v);
+                }
+            }
+        }
     }
 }
 
@@ -260,6 +286,14 @@ pub fn update_effect_mode(win: &Window, win_state: &mut WinState, updated_pixel_
             win_state.win_size_snap.get_height() / win_state.pixel_chunk.get_height(),
             SMA_WINDOW_SIZE,
         );
+    }
+}
+
+pub fn update_transform_mode(win: &Window, win_state: &mut WinState) {
+    // switch mode
+    if win.is_key_pressed(Key::Enter, KeyRepeat::No) {
+        win_state.transform_mode.toggle();
+        log::debug!("Toggled {}!", win_state.transform_mode);
     }
 }
 

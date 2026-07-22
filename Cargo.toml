@@ -13,8 +13,8 @@ minifb = "0.28.0"
 rayon = "1.12.0"
 nokhwa = { version = "0.10.10", features = ["input-native"] }
 
-[patch.crates-io]
-minifb = { path = "/Users/alexanderkumar/Code/rust_minifb" }
+# [patch.crates-io]
+# minifb = { path = "/Users/alexanderkumar/Code/rust_minifb" }
 
 [[bench]]
 name = "benchmark"
