@@ -1,9 +1,9 @@
 pub mod lattice;
 
-use std::fmt;
 use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
 use rayon::prelude::*;
+use std::fmt;
 
 use crate::geometry::{Point, Rect};
 use crate::window::EffectMode;

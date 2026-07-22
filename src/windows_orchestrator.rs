@@ -21,10 +21,7 @@ impl WindowsOrchestrator {
         let win = new_win(0).context("Win oopsie")?;
         let win_state = WinState::new(EffectMode::Default);
 
-        let frame = Arc::new(RgbImage::new(
-            DEFAULT_CAMERA_WIDTH,
-            DEFAULT_CAMERA_HEIGHT,
-        ));
+        let frame = Arc::new(RgbImage::new(DEFAULT_CAMERA_WIDTH, DEFAULT_CAMERA_HEIGHT));
 
         Ok(WindowsOrchestrator {
             frame,

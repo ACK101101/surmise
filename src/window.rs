@@ -4,11 +4,11 @@ use crate::transform::{
     TransformMode, average, calc_source_chunk_dims, lattice::PixelLattice, rbg_image_to_u32,
 };
 
-use std::cmp::min;
 use anyhow::Result;
 use image::{Rgb, RgbImage};
 use minifb::*;
 use rayon::prelude::*;
+use std::cmp::min;
 use std::fmt;
 
 // Window Effect Modes

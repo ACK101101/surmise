@@ -36,7 +36,6 @@ fn main() {
     let mut last_frame_elapsed = std::time::Duration::new(0, 0);
 
     while wins_orc.is_alive() {
-
         wins_orc.step_wins();
 
         frames_processed += 1;
@@ -45,7 +44,9 @@ fn main() {
             eprintln!(
                 "Frame {}: {:.3} ms/frame \t{:.1} fps \t({} wins)",
                 frames_processed,
-                ((time_since_start - last_frame_elapsed).as_secs_f64() / FRAME_SAMPLING_WINDOW as f64) * 1000.0,
+                ((time_since_start - last_frame_elapsed).as_secs_f64()
+                    / FRAME_SAMPLING_WINDOW as f64)
+                    * 1000.0,
                 frames_processed as f64 / time_since_start.as_secs_f64(),
                 wins_orc.num_open(),
             );

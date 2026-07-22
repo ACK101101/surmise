@@ -33,14 +33,7 @@ fn downsample_bench(c: &mut Criterion) {
     let source_chunk_matrix = Rect::new(64, 32);
 
     c.bench_function("downsample 1920x1080", |b| {
-        b.iter(|| {
-            win_state.downsample(
-                &image,
-                origin,
-                pixel_chunk_matrix,
-                source_chunk_matrix,
-            )
-        })
+        b.iter(|| win_state.downsample(&image, origin, pixel_chunk_matrix, source_chunk_matrix))
     });
 }
 

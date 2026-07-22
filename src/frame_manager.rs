@@ -30,8 +30,7 @@ impl FrameManager {
             // tries to open camera stream
             camera.open_stream()?;
 
-            let mut scratch =
-                RgbImage::new(DEFAULT_CAMERA_WIDTH, DEFAULT_CAMERA_HEIGHT );
+            let mut scratch = RgbImage::new(DEFAULT_CAMERA_WIDTH, DEFAULT_CAMERA_HEIGHT);
             loop {
                 camera
                     .write_frame_to_buffer::<RgbFormat>(scratch.as_mut())
