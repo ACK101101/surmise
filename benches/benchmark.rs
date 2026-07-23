@@ -5,8 +5,9 @@ use image::{Rgb, RgbImage};
 use surmise::config::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, SMA_WINDOW_SIZE};
 use surmise::geometry::{Point, Rect};
 use surmise::transform::average;
+use surmise::transform::color::ColorMode;
 use surmise::transform::lattice::PixelLattice;
-use surmise::transform::{TransformMode, rbg_image_to_u32};
+use surmise::transform::rbg_image_to_u32;
 use surmise::window::{EffectMode, WinState};
 
 fn average_bench(c: &mut Criterion) {
@@ -41,7 +42,7 @@ fn rgb_image_to_u32_bench(c: &mut Criterion) {
     let image = RgbImage::new(1920, 1080);
     let mut v = Vec::new();
     c.bench_function("rbg_image_to_u32 1920x1080", |b| {
-        b.iter(|| rbg_image_to_u32(&image, &mut v, TransformMode::Default))
+        b.iter(|| rbg_image_to_u32(&image, &mut v, ColorMode::Default))
     });
 }
 

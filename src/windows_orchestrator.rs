@@ -79,8 +79,8 @@ impl WindowsOrchestrator {
 
             let updated_pixel_chunk = update_pixel_chunk(win, win_state);
             update_effect_mode(win, win_state, updated_pixel_chunk);
-
             update_transform_mode(win, win_state);
+            update_color_mode(win, win_state);
         }
 
         (to_shutter_idxs, win_to_open)

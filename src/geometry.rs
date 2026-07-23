@@ -1,3 +1,4 @@
+// --- Point ---------------------------------------------------------------------------------------
 #[derive(Copy, Clone)]
 pub struct Point {
     pub x: i32,
@@ -13,6 +14,7 @@ impl From<(isize, isize)> for Point {
     }
 }
 
+// --- Rect ----------------------------------------------------------------------------------------
 #[derive(Copy, Clone, Debug)]
 pub struct Rect {
     width: u32,

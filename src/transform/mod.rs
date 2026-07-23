@@ -1,84 +1,12 @@
+pub mod color;
 pub mod lattice;
+pub mod pattern;
 
-use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
 use rayon::prelude::*;
-use std::fmt;
 
 use crate::geometry::{Point, Rect};
-use crate::window::EffectMode;
-
-// Transform Mapping Modes
-#[derive(Copy, Clone)]
-pub enum TransformMode {
-    Default, // chunky pixel
-    Red,
-    Green,
-    Blue,
-    Single,
-    Multiple,
-    Dots,
-}
-
-impl TransformMode {
-    pub fn toggle(&mut self) {
-        *self = match self {
-            TransformMode::Default => TransformMode::Red,
-            TransformMode::Red => TransformMode::Green,
-            TransformMode::Green => TransformMode::Blue,
-            TransformMode::Blue => TransformMode::Dots,
-            TransformMode::Dots => TransformMode::Default,
-            _ => TransformMode::Default, // TODO: placeholder
-        };
-    }
-}
-
-impl fmt::Display for TransformMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TransformMode::Default => write!(f, "Chunky"),
-            TransformMode::Red => write!(f, "Red"),
-            TransformMode::Green => write!(f, "Green"),
-            TransformMode::Blue => write!(f, "Blue"),
-            TransformMode::Dots => write!(f, "Dots"),
-            _ => write!(f, "Unimplemented"),
-        }
-    }
-}
-
-// TODO: maybe fold in window.rs for clarity
-pub fn calc_source_chunk_dims(
-    source_dims: Rect,
-    window_dims: Rect,
-    window_pos: Point,
-    pixel_dims: Rect,
-    mode: EffectMode,
-) -> Result<(Rect, Rect, Point)> {
-    if !source_dims.can_contain(&window_dims) {
-        return Err(anyhow!(
-            "Can not downsample when the source is smaller than window bruh"
-        ));
-    }
-
-    // figure out how many chunky pixels fit into the target
-    let pixel_chunk_matrix = window_dims / pixel_dims;
-
-    let relevant_source_matrix: Rect = match mode {
-        EffectMode::Reveal => window_dims,
-        _ => source_dims,
-    };
-
-    // based on matrix of chunky pixels, map source chunks to pixel chunks
-    let source_chunk_matrix = relevant_source_matrix / pixel_chunk_matrix;
-
-    // where to start processing source image
-    let origin: Point = match mode {
-        EffectMode::Reveal => window_pos,
-        _ => Point { x: 0, y: 0 },
-    };
-
-    Ok((pixel_chunk_matrix, source_chunk_matrix, origin))
-}
+use crate::transform::color::ColorMode;
 
 pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8> {
     let (w, h) = image.dimensions();
@@ -111,19 +39,19 @@ pub fn average(image: &RgbImage, top_left: Point, chunk_matrix: Rect) -> Rgb<u8>
     ])
 }
 
-pub fn rbg_image_to_u32(image: &RgbImage, v: &mut Vec<u32>, transform_mode: TransformMode) {
+pub fn rbg_image_to_u32(image: &RgbImage, v: &mut Vec<u32>, color_mode: ColorMode) {
     image
         .as_raw()
         .par_chunks_exact(3)
-        .map(|c| rgb_to_u32(c[0], c[1], c[2], transform_mode))
+        .map(|c| rgb_to_u32(c[0], c[1], c[2], color_mode))
         .collect_into_vec(v);
 }
 
-fn rgb_to_u32(r: u8, g: u8, b: u8, transform_mode: TransformMode) -> u32 {
-    match transform_mode {
-        TransformMode::Red => ((r as u32) << 16) | ((0 as u32) << 8) | (0 as u32),
-        TransformMode::Green => ((0 as u32) << 16) | ((g as u32) << 8) | (0 as u32),
-        TransformMode::Blue => ((0 as u32) << 16) | ((0 as u32) << 8) | (b as u32),
+fn rgb_to_u32(r: u8, g: u8, b: u8, color_mode: ColorMode) -> u32 {
+    match color_mode {
+        ColorMode::Red => ((r as u32) << 16) | ((0 as u32) << 8) | (0 as u32),
+        ColorMode::Green => ((0 as u32) << 16) | ((g as u32) << 8) | (0 as u32),
+        ColorMode::Blue => ((0 as u32) << 16) | ((0 as u32) << 8) | (b as u32),
         _ => ((r as u32) << 16) | ((g as u32) << 8) | (b as u32),
     }
 }

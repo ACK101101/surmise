@@ -1,18 +1,17 @@
 use crate::config::*;
 use crate::geometry::{Point, Rect};
 use crate::transform::{
-    TransformMode, average, calc_source_chunk_dims, lattice::PixelLattice, rbg_image_to_u32,
-    scale_rbg,
+    pattern::PatternMode, average, color::ColorMode, lattice::PixelLattice, rbg_image_to_u32, scale_rbg,
 };
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use image::{Rgb, RgbImage};
 use minifb::*;
 use rayon::prelude::*;
 use std::cmp::min;
 use std::fmt;
 
-// Window Effect Modes
+// --- Window EffectMode ---------------------------------------------------------------------------
 #[derive(Copy, Clone)]
 pub enum EffectMode {
     Default, // average
@@ -40,7 +39,7 @@ impl EffectMode {
     }
 }
 
-// Window State Handling
+// --- Window State --------------------------------------------------------------------------------
 pub struct WinState {
     frame: Vec<u32>,
     scratch: Vec<u32>,
@@ -49,7 +48,8 @@ pub struct WinState {
     pixel_chunk: Rect,
     memory: PixelLattice,
     effect_mode: EffectMode,
-    transform_mode: TransformMode,
+    pattern_mode: PatternMode,
+    color_mode: ColorMode,
 }
 
 impl WinState {
@@ -62,34 +62,57 @@ impl WinState {
             pixel_chunk: Rect::new(DEFAULT_PIXEL_WIDTH, DEFAULT_PIXEL_HEIGHT),
             memory: PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE),
             effect_mode: mode,
-            transform_mode: TransformMode::Default,
+            pattern_mode: PatternMode::Default,
+            color_mode: ColorMode::Default,
         }
     }
 
     pub fn calculate_and_save_frame(&mut self, raw_buf: &RgbImage) -> Result<()> {
-        let (pixel_chunk_matrix, source_chunk_matrix, origin) = match calc_source_chunk_dims(
-            Rect::new(raw_buf.width(), raw_buf.height()),
-            self.win_size_snap,
-            self.win_pos_snap,
-            self.pixel_chunk,
-            self.effect_mode,
-        ) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Chunking oopsie: {e}");
-                return Err(e);
-            }
-        };
+        let (pixel_chunk_matrix, source_chunk_matrix, origin) =
+            match self.calc_source_chunk_dims(Rect::new(raw_buf.width(), raw_buf.height())) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Chunking oopsie: {e}");
+                    return Err(e);
+                }
+            };
 
         log::debug!("Source Chunk Matrix: {source_chunk_matrix:?}");
         log::debug!("Pixel Chunk Matrix: {pixel_chunk_matrix:?}");
 
         let downsampled = self.downsample(raw_buf, origin, pixel_chunk_matrix, source_chunk_matrix);
 
-        rbg_image_to_u32(&downsampled, &mut self.scratch, self.transform_mode);
+        rbg_image_to_u32(&downsampled, &mut self.scratch, self.color_mode);
         std::mem::swap(&mut self.frame, &mut self.scratch);
 
         Ok(())
+    }
+
+    fn calc_source_chunk_dims(&self, source_dims: Rect) -> Result<(Rect, Rect, Point)> {
+        if !source_dims.can_contain(&self.win_size_snap) {
+            return Err(anyhow!(
+                "Can not downsample when the source is smaller than window bruh"
+            ));
+        }
+
+        // figure out how many chunky pixels fit into the target
+        let pixel_chunk_matrix = self.win_size_snap / self.pixel_chunk;
+
+        let relevant_source_matrix: Rect = match self.effect_mode {
+            EffectMode::Reveal => self.win_size_snap,
+            _ => source_dims,
+        };
+
+        // based on matrix of chunky pixels, map source chunks to pixel chunks
+        let source_chunk_matrix = relevant_source_matrix / pixel_chunk_matrix;
+
+        // where to start processing source image
+        let origin: Point = match self.effect_mode {
+            EffectMode::Reveal => self.win_pos_snap,
+            _ => Point { x: 0, y: 0 },
+        };
+
+        Ok((pixel_chunk_matrix, source_chunk_matrix, origin))
     }
 
     pub fn downsample(
@@ -134,8 +157,8 @@ impl WinState {
                 }
 
                 // fill patch
-                match self.transform_mode {
-                    TransformMode::Dots => self.fill_circle(&mut new_image, new_v, col_i, row_i),
+                match self.pattern_mode {
+                    PatternMode::Dots => self.fill_circle(&mut new_image, new_v, col_i, row_i),
                     _ => self.fill_rect(&mut new_image, new_v, col_i, row_i),
                 };
             }
@@ -178,6 +201,7 @@ impl WinState {
     }
 }
 
+// --- Minifb Window -------------------------------------------------------------------------------
 #[derive(Clone, Copy)]
 pub enum WinStepOutcome {
     Continue,
@@ -280,7 +304,7 @@ pub fn update_effect_mode(win: &Window, win_state: &mut WinState, updated_pixel_
     if win.is_key_pressed(Key::Space, KeyRepeat::No) {
         win_state.effect_mode.toggle();
         toggled = true;
-        log::debug!("Toggled {}!", win_state.effect_mode);
+        log::debug!("Toggled Effect Mode: {}!", win_state.effect_mode);
     }
 
     if matches!(win_state.effect_mode, EffectMode::Sma) && (updated_pixel_chunk || toggled) {
@@ -292,11 +316,19 @@ pub fn update_effect_mode(win: &Window, win_state: &mut WinState, updated_pixel_
     }
 }
 
+pub fn update_color_mode(win: &Window, win_state: &mut WinState) {
+    // switch mode
+    if win.is_key_pressed(Key::C, KeyRepeat::No) {
+        win_state.color_mode.toggle();
+        log::debug!("Toggled Color Mode: {}!", win_state.color_mode);
+    }
+}
+
 pub fn update_transform_mode(win: &Window, win_state: &mut WinState) {
     // switch mode
     if win.is_key_pressed(Key::Enter, KeyRepeat::No) {
-        win_state.transform_mode.toggle();
-        log::debug!("Toggled {}!", win_state.transform_mode);
+        win_state.pattern_mode.toggle();
+        log::debug!("Toggled Transform Mode: {}!", win_state.pattern_mode);
     }
 }
 
