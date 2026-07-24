@@ -17,6 +17,10 @@ pub struct Lens {
     frame: Vec<u32>,
     scratch: Vec<u32>,
 
+    // snapshot of minifb window state
+    win_size_snap: Rect,
+    win_pos_snap: Point,
+
     // memory for transforms, influenced by user input
     tile: Rect,
     tile_cuboid: TileCuboid,
@@ -33,6 +37,9 @@ impl Lens {
             frame: vec![0u32; (DEFAULT_CAMERA_WIDTH * DEFAULT_CAMERA_HEIGHT) as usize],
             scratch: vec![0u32; (DEFAULT_CAMERA_WIDTH * DEFAULT_CAMERA_HEIGHT) as usize],
 
+            win_size_snap: Rect::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
+            win_pos_snap: Point { x: 0, y: 0 },
+
             tile: Rect::new(DEFAULT_PIXEL_WIDTH, DEFAULT_PIXEL_HEIGHT),
             tile_cuboid: TileCuboid::new(
                 DEFAULT_WINDOW_WIDTH,
@@ -46,52 +53,61 @@ impl Lens {
         }
     }
 
+    pub fn get_snapshots(&self) -> (Rect, Point) {
+        (self.win_size_snap, self.win_pos_snap)
+    }
+
+    pub fn set_snapshots(&mut self, win_size_snap: Rect, win_pos_snap: Point) {
+        self.win_size_snap = win_size_snap;
+        self.win_pos_snap = win_pos_snap;
+    }
+
     // --- Handles for input from Driver
-    pub fn halve_tile_width(&mut self, win_size_snap: &Rect) {
+    pub fn halve_tile_width(&mut self) {
         let (w, h) = self.tile.get_dims();
         if w > 1 {
             self.tile.resize(w / 2, h);
-            self.rebuild_tile_cuboid(win_size_snap);
+            self.rebuild_tile_cuboid();
         }
     }
 
-    pub fn halve_tile_height(&mut self, win_size_snap: &Rect) {
+    pub fn halve_tile_height(&mut self) {
         let (w, h) = self.tile.get_dims();
         if h > 1 {
             self.tile.resize(w, h / 2);
-            self.rebuild_tile_cuboid(win_size_snap);
+            self.rebuild_tile_cuboid();
         }
     }
 
-    pub fn halve_tile(&mut self, win_size_snap: &Rect) {
+    pub fn halve_tile(&mut self) {
         let (w, h) = self.tile.get_dims();
         let new_w = if w > 1 { w / 2 } else { w };
         let new_h = if h > 1 { h / 2 } else { h };
         self.tile.resize(new_w, new_h);
-        self.rebuild_tile_cuboid(win_size_snap);
+        self.rebuild_tile_cuboid();
     }
 
-    pub fn double_tile_width(&mut self, win_size_snap: &Rect) {
+    pub fn double_tile_width(&mut self) {
         let (tile_w, tile_h) = self.tile.get_dims();
-        let win_w = win_size_snap.get_width();
+        let win_w = self.win_size_snap.get_width();
         if tile_w < win_w / 2 {
             self.tile.resize(tile_w * 2, tile_h);
-            self.rebuild_tile_cuboid(win_size_snap);
+            self.rebuild_tile_cuboid();
         }
     }
 
-    pub fn double_tile_height(&mut self, win_size_snap: &Rect) {
+    pub fn double_tile_height(&mut self) {
         let (tile_w, tile_h) = self.tile.get_dims();
-        let win_h = win_size_snap.get_height();
+        let win_h = self.win_size_snap.get_height();
         if tile_h < win_h / 2 {
             self.tile.resize(tile_w, tile_h * 2);
-            self.rebuild_tile_cuboid(win_size_snap);
+            self.rebuild_tile_cuboid();
         }
     }
 
-    pub fn double_tile(&mut self, win_size_snap: &Rect) {
+    pub fn double_tile(&mut self) {
         let (tile_w, tile_h) = self.tile.get_dims();
-        let (win_w, win_h) = win_size_snap.get_dims();
+        let (win_w, win_h) = self.win_size_snap.get_dims();
 
         let new_tile_w = if tile_w < win_w / 2 {
             tile_w * 2
@@ -105,12 +121,12 @@ impl Lens {
         };
 
         self.tile.resize(new_tile_w, new_tile_h);
-        self.rebuild_tile_cuboid(win_size_snap);
+        self.rebuild_tile_cuboid();
     }
 
-    pub fn toggle_effect_mode(&mut self, win_size_snap: &Rect) {
+    pub fn toggle_effect_mode(&mut self) {
         self.effect_mode.toggle();
-        self.rebuild_tile_cuboid(win_size_snap);
+        self.rebuild_tile_cuboid();
     }
 
     pub fn toggle_color_mode(&mut self) {
@@ -121,25 +137,20 @@ impl Lens {
         self.pattern_mode.toggle();
     }
 
-    fn rebuild_tile_cuboid(&mut self, win_size_snap: &Rect) {
+    fn rebuild_tile_cuboid(&mut self) {
         if matches!(self.effect_mode, EffectMode::Sma) {
             self.tile_cuboid = TileCuboid::new(
-                win_size_snap.get_width() / self.tile.get_width(),
-                win_size_snap.get_height() / self.tile.get_height(),
+                self.win_size_snap.get_width() / self.tile.get_width(),
+                self.win_size_snap.get_height() / self.tile.get_height(),
                 SMA_WINDOW_SIZE,
             );
         }
     }
 
     // --- Calculate frames
-    pub fn calculate_and_save_frame(
-        &mut self,
-        raw_image: &RgbImage,
-        win_size_snap: Rect, // TODO: weird that not a ref?
-        win_pos_snap: Point, // TODO: weird that not a ref?
-    ) -> Result<()> {
+    pub fn calculate_and_save_frame(&mut self, raw_image: &RgbImage) -> Result<()> {
         let (pixel_chunk_matrix, source_chunk_matrix, origin) =
-            match self.calc_source_chunk_dims(raw_image, win_size_snap, win_pos_snap) {
+            match self.calc_source_chunk_dims(raw_image) {
                 Ok(c) => c,
                 Err(e) => {
                     eprintln!("Chunking oopsie: {e}");
@@ -147,13 +158,8 @@ impl Lens {
                 }
             };
 
-        let downsampled = self.downsample(
-            raw_image,
-            origin,
-            pixel_chunk_matrix,
-            source_chunk_matrix,
-            win_size_snap,
-        );
+        let downsampled =
+            self.downsample(raw_image, origin, pixel_chunk_matrix, source_chunk_matrix);
 
         rbg_image_to_u32(&downsampled, &mut self.scratch, self.color_mode);
         std::mem::swap(&mut self.frame, &mut self.scratch);
@@ -161,26 +167,25 @@ impl Lens {
         Ok(())
     }
 
+    pub fn get_frame(&self) -> &[u32] {
+        &self.frame
+    }
+
     // TODO: refactor to only be called when image dims change, win size change, win pos change, tile change
     // TODO: break up above
-    fn calc_source_chunk_dims(
-        &self,
-        raw_image: &RgbImage,
-        win_size_snap: Rect, // TODO: weird that not a ref?
-        win_pos_snap: Point, // TODO: weird that not a ref?
-    ) -> Result<(Rect, Rect, Point)> {
+    fn calc_source_chunk_dims(&self, raw_image: &RgbImage) -> Result<(Rect, Rect, Point)> {
         let source_dims = Rect::new(raw_image.width(), raw_image.height());
-        if !source_dims.can_contain(&win_size_snap) {
+        if !source_dims.can_contain(&self.win_size_snap) {
             return Err(anyhow!(
                 "Can not downsample when the source is smaller than window bruh"
             ));
         }
 
         // figure out how many chunky pixels fit into the target
-        let pixel_chunk_matrix = win_size_snap / self.tile;
+        let pixel_chunk_matrix = self.win_size_snap / self.tile;
 
         let relevant_source_matrix: Rect = match self.effect_mode {
-            EffectMode::Reveal => win_size_snap,
+            EffectMode::Reveal => self.win_size_snap,
             _ => source_dims,
         };
 
@@ -189,7 +194,7 @@ impl Lens {
 
         // where to start processing source image
         let origin: Point = match self.effect_mode {
-            EffectMode::Reveal => win_pos_snap,
+            EffectMode::Reveal => self.win_pos_snap,
             _ => Point { x: 0, y: 0 },
         };
 
@@ -203,7 +208,6 @@ impl Lens {
         origin: Point,
         pixel_chunk_matrix: Rect,
         source_chunk_matrix: Rect,
-        win_size_snap: Rect, // TODO: weird that not a ref?
     ) -> RgbImage {
         let (pixel_matrix_width, pixel_matrix_height) = pixel_chunk_matrix.get_dims();
         let use_cuboid = matches!(self.effect_mode, EffectMode::Sma)
@@ -227,8 +231,10 @@ impl Lens {
             })
             .collect();
 
-        let mut new_image: RgbImage =
-            RgbImage::new(win_size_snap.get_width(), win_size_snap.get_height());
+        let mut new_image: RgbImage = RgbImage::new(
+            self.win_size_snap.get_width(),
+            self.win_size_snap.get_height(),
+        );
 
         for row_i in 0..pixel_matrix_height {
             for col_i in 0..pixel_matrix_width {

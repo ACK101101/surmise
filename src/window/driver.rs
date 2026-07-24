@@ -3,14 +3,11 @@ use minifb::{Key, KeyRepeat, Window as MinifbWindow, WindowOptions};
 
 use crate::config::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 use crate::geometry::{Point, Rect};
-use crate::window::{WindowStepOutcome, lens::Lens};
+use crate::window::{InputOutcome, lens::Lens};
 
 // --- Driver of Minifb Window ---------------------------------------------------------------------
 pub struct Driver {
     minifb_win: MinifbWindow,
-
-    win_size_snap: Rect,
-    win_pos_snap: Point,
 }
 
 impl Driver {
@@ -36,50 +33,49 @@ impl Driver {
 
         Ok(Driver {
             minifb_win,
-
-            win_size_snap: Rect::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
-            win_pos_snap: Point { x: 0, y: 0 },
         })
     }
 
-    pub fn update_snapshots(&mut self) {
+    pub fn snap_snapshots(&mut self) -> (Rect, Point) {
         let (win_w, win_h) = self.minifb_win.get_size();
-        self.win_size_snap = Rect::new(win_w as u32, win_h as u32);
+        let win_size_snap = Rect::new(win_w as u32, win_h as u32);
 
         let (win_x, win_y) = self.minifb_win.get_position();
-        self.win_pos_snap = Point {
+        let win_pos_snap = Point {
             x: win_x as i32,
             y: win_y as i32,
         };
+
+        (win_size_snap, win_pos_snap)
     }
 
-    pub fn apply_input(&mut self, lens: &mut Lens) -> WindowStepOutcome {
+    pub fn apply_input(&mut self, lens: &mut Lens) -> InputOutcome {
         // store signal for caller if minifb window needs to be opened or shuttered
-        let mut outcome = WindowStepOutcome::Continue;
+        let mut outcome = InputOutcome::Continue;
 
         // route user input to relevant state changes
         for key in self.minifb_win.get_keys_pressed(KeyRepeat::No) {
             match key {
                 // handle outcome keys
                 Key::Q => {
-                    outcome = WindowStepOutcome::Shutter;
+                    outcome = InputOutcome::Shutter;
                     break;
                 }
                 Key::N => {
-                    outcome = WindowStepOutcome::Open;
+                    outcome = InputOutcome::Open;
                     break;
                 }
 
                 // handle tile keys
-                Key::Right => lens.halve_tile_width(&self.win_size_snap),
-                Key::Left => lens.double_tile_width(&self.win_size_snap),
-                Key::Down => lens.halve_tile_height(&self.win_size_snap),
-                Key::Up => lens.double_tile_height(&self.win_size_snap),
-                Key::LeftBracket => lens.halve_tile(&self.win_size_snap),
-                Key::RightBracket => lens.double_tile(&self.win_size_snap),
+                Key::Right => lens.halve_tile_width(),
+                Key::Left => lens.double_tile_width(),
+                Key::Down => lens.halve_tile_height(),
+                Key::Up => lens.double_tile_height(),
+                Key::LeftBracket => lens.halve_tile(),
+                Key::RightBracket => lens.double_tile(),
 
                 // handle effect keys
-                Key::Space => lens.toggle_effect_mode(&self.win_size_snap),
+                Key::Space => lens.toggle_effect_mode(),
                 Key::C => lens.toggle_color_mode(),
                 Key::Enter => lens.toggle_pattern_mode(),
 
@@ -91,11 +87,11 @@ impl Driver {
         outcome
     }
     
-    pub fn flush(&mut self, frame: &[u32]) -> Result<()> {
+    pub fn flush(&mut self, frame: &[u32], win_size_snap: &Rect) -> Result<()> {
         self.minifb_win.update_with_buffer(
             frame,
-            self.win_size_snap.get_width() as usize,
-            self.win_size_snap.get_height() as usize,
+            win_size_snap.get_width() as usize,
+            win_size_snap.get_height() as usize,
         )?;
         Ok(())
     }

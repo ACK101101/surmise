@@ -12,7 +12,7 @@ pub struct Window {
 }
 
 #[derive(Clone, Copy)]
-pub enum WindowStepOutcome {
+pub enum InputOutcome {
     Continue,
     Shutter,
     Open,
@@ -24,5 +24,21 @@ impl Window {
         let lens = Lens::new();
 
         Ok(Window { driver, lens })
+    }
+
+    pub fn poll_input(&mut self) -> InputOutcome {
+        let (win_size_snap, win_pos_snap) = self.driver.snap_snapshots();
+        self.lens.set_snapshots(win_size_snap, win_pos_snap);
+        let outcome = self.driver.apply_input(&mut self.lens);
+        outcome
+    }
+
+    pub fn give_lens(&mut self) -> &mut Lens {
+        &mut self.lens
+    }
+
+    pub fn flush(&mut self) -> Result<()> {
+        let (win_size_snap, _) = self.lens.get_snapshots();
+        self.driver.flush(self.lens.get_frame(), &win_size_snap)
     }
 }
