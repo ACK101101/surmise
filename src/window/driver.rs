@@ -31,9 +31,7 @@ impl Driver {
             },
         )?;
 
-        Ok(Driver {
-            minifb_win,
-        })
+        Ok(Driver { minifb_win })
     }
 
     pub fn snap_snapshots(&mut self) -> (Rect, Point) {
@@ -86,7 +84,7 @@ impl Driver {
 
         outcome
     }
-    
+
     pub fn flush(&mut self, frame: &[u32], win_size_snap: &Rect) -> Result<()> {
         self.minifb_win.update_with_buffer(
             frame,

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
 use crate::frame_manager::FrameManager;
-use crate::window::{Window, InputOutcome, lens::Lens};
+use crate::window::{InputOutcome, Window, lens::Lens};
 
 pub struct WindowsOrchestrator {
     frame: Arc<RgbImage>,
@@ -81,7 +81,7 @@ impl WindowsOrchestrator {
         });
     }
 
-    fn flush_frames(&mut self, ) {
+    fn flush_frames(&mut self) {
         for window in self.windows.iter_mut() {
             if let Err(e) = window.flush() {
                 eprintln!("Update oopsie: {e}");
