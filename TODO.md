@@ -1,9 +1,6 @@
 # TODOs
 
-[ ] Factor out input handling
-[ ] Factor out color transform
-[ ] Factor out region stamp
-
+[ ] Misc refactors left behind
 [ ] Add mic input & effect on size
 
 [ ] Frame gets stretched on window resize

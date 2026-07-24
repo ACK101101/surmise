@@ -29,8 +29,8 @@ impl Window {
     pub fn poll_input(&mut self) -> InputOutcome {
         let (win_size_snap, win_pos_snap) = self.driver.snap_snapshots();
         self.lens.set_snapshots(win_size_snap, win_pos_snap);
-        let outcome = self.driver.apply_input(&mut self.lens);
-        outcome
+        
+        self.driver.apply_input(&mut self.lens)
     }
 
     pub fn give_lens(&mut self) -> &mut Lens {

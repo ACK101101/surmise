@@ -31,6 +31,12 @@ pub struct Lens {
     color_mode: ColorMode,
 }
 
+impl Default for Lens {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Lens {
     pub fn new() -> Lens {
         Lens {

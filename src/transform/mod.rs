@@ -18,9 +18,9 @@ pub fn rbg_image_to_u32(image: &RgbImage, v: &mut Vec<u32>, color_mode: ColorMod
 
 fn rgb_to_u32(r: u8, g: u8, b: u8, color_mode: ColorMode) -> u32 {
     match color_mode {
-        ColorMode::Red => ((r as u32) << 16) | ((0 as u32) << 8) | (0 as u32),
-        ColorMode::Green => ((0 as u32) << 16) | ((g as u32) << 8) | (0 as u32),
-        ColorMode::Blue => ((0 as u32) << 16) | ((0 as u32) << 8) | (b as u32),
+        ColorMode::Red => (r as u32) << 16 ,
+        ColorMode::Green => (g as u32) << 8 ,
+        ColorMode::Blue => b as u32 ,
         _ => ((r as u32) << 16) | ((g as u32) << 8) | (b as u32),
     }
 }
