@@ -6,9 +6,10 @@ use surmise::config::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, SMA_WINDOW_SI
 use surmise::geometry::{Point, Rect};
 use surmise::transform::average;
 use surmise::transform::color::ColorMode;
-use surmise::transform::lattice::PixelLattice;
+use surmise::transform::cuboid::TileCuboid;
+use surmise:: transform::effect::EffectMode;
 use surmise::transform::rbg_image_to_u32;
-use surmise::window::{EffectMode, WinState};
+use surmise::win::{WinState};
 
 fn average_bench(c: &mut Criterion) {
     let image = RgbImage::new(1920, 1080);
@@ -21,7 +22,7 @@ fn average_bench(c: &mut Criterion) {
 
 fn pixel_lattice_sma_bench(c: &mut Criterion) {
     let mut lattice =
-        PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE);
+        TileCuboid::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE);
     let pixel = Rgb([1, 1, 1]);
     c.bench_function("sma 60x67", |b| b.iter(|| lattice.sma(pixel, 1, 1)));
 }

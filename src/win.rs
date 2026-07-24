@@ -1,7 +1,8 @@
 use crate::config::*;
 use crate::geometry::{Point, Rect};
 use crate::transform::{
-    pattern::PatternMode, average, color::ColorMode, lattice::PixelLattice, rbg_image_to_u32, scale_rbg,
+    average, color::ColorMode, effect::EffectMode, cuboid::TileCuboid, pattern::PatternMode,
+    rbg_image_to_u32, scale_rbg,
 };
 
 use anyhow::{Result, anyhow};
@@ -9,35 +10,6 @@ use image::{Rgb, RgbImage};
 use minifb::*;
 use rayon::prelude::*;
 use std::cmp::min;
-use std::fmt;
-
-// --- Window EffectMode ---------------------------------------------------------------------------
-#[derive(Copy, Clone)]
-pub enum EffectMode {
-    Default, // average
-    Reveal,
-    Sma,
-}
-
-impl fmt::Display for EffectMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            EffectMode::Default => write!(f, "Average"),
-            EffectMode::Reveal => write!(f, "Reveal"),
-            EffectMode::Sma => write!(f, "SMA"),
-        }
-    }
-}
-
-impl EffectMode {
-    fn toggle(&mut self) {
-        *self = match self {
-            EffectMode::Default => EffectMode::Reveal,
-            EffectMode::Reveal => EffectMode::Sma,
-            EffectMode::Sma => EffectMode::Default,
-        };
-    }
-}
 
 // --- Window State --------------------------------------------------------------------------------
 pub struct WinState {
@@ -46,7 +18,7 @@ pub struct WinState {
     win_size_snap: Rect,
     win_pos_snap: Point,
     pixel_chunk: Rect,
-    memory: PixelLattice,
+    memory: TileCuboid,
     effect_mode: EffectMode,
     pattern_mode: PatternMode,
     color_mode: ColorMode,
@@ -60,7 +32,7 @@ impl WinState {
             win_size_snap: Rect::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
             win_pos_snap: Point { x: 0, y: 0 },
             pixel_chunk: Rect::new(DEFAULT_PIXEL_WIDTH, DEFAULT_PIXEL_HEIGHT),
-            memory: PixelLattice::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE),
+            memory: TileCuboid::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, SMA_WINDOW_SIZE),
             effect_mode: mode,
             pattern_mode: PatternMode::Default,
             color_mode: ColorMode::Default,
@@ -126,7 +98,7 @@ impl WinState {
         let use_memory = matches!(self.effect_mode, EffectMode::Sma)
             && self
                 .memory
-                .use_memory(pixel_matrix_width, pixel_matrix_height);
+                .use_cuboid(pixel_matrix_width, pixel_matrix_height);
 
         // calculate new pixelchunk values in parallel
         let averaged: Vec<Rgb<u8>> = (0..pixel_chunk_matrix.area())
@@ -308,7 +280,7 @@ pub fn update_effect_mode(win: &Window, win_state: &mut WinState, updated_pixel_
     }
 
     if matches!(win_state.effect_mode, EffectMode::Sma) && (updated_pixel_chunk || toggled) {
-        win_state.memory = PixelLattice::new(
+        win_state.memory = TileCuboid::new(
             win_state.win_size_snap.get_width() / win_state.pixel_chunk.get_width(),
             win_state.win_size_snap.get_height() / win_state.pixel_chunk.get_height(),
             SMA_WINDOW_SIZE,

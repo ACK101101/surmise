@@ -1,12 +1,13 @@
-use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
-use crate::frame_manager::FrameManager;
-use crate::window::*;
-
 use anyhow::{Context, Result, bail};
 use image::RgbImage;
 use minifb::*;
 use rayon::prelude::*;
 use std::sync::Arc;
+
+use crate::config::{DEFAULT_CAMERA_HEIGHT, DEFAULT_CAMERA_WIDTH};
+use crate::frame_manager::FrameManager;
+use crate::transform::effect::EffectMode;
+use crate::win::*;
 
 pub struct WindowsOrchestrator {
     frame: Arc<RgbImage>,

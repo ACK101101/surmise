@@ -4,7 +4,7 @@ use crate::config::SMA_WINDOW_SIZE;
 
 use image::Rgb;
 
-pub struct PixelLattice {
+pub struct TileCuboid {
     pixel_slices: Vec<Vec<Rgb<u8>>>,
     width: u32,
     height: u32,
@@ -12,7 +12,7 @@ pub struct PixelLattice {
     write_idx: usize,
 }
 
-impl PixelLattice {
+impl TileCuboid {
     pub fn new(width: u32, height: u32, length: usize) -> Self {
         Self {
             pixel_slices: vec![vec![Rgb([0, 0, 0]); (width * height) as usize]; length],
@@ -23,7 +23,8 @@ impl PixelLattice {
         }
     }
 
-    pub fn use_memory(&self, width: u32, height: u32) -> bool {
+    // TODO: is this needed? seems like a fallback that shouldn't need to exist
+    pub fn use_cuboid(&self, width: u32, height: u32) -> bool {
         width == self.width && height == self.height
     }
 

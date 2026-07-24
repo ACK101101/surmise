@@ -1,5 +1,6 @@
 pub mod color;
-pub mod lattice;
+pub mod effect;
+pub mod cuboid;
 pub mod pattern;
 
 use image::{Rgb, RgbImage};
